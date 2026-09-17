@@ -34,12 +34,14 @@
       object-fit: cover !important;
     }
 
-    #ios-permission-modal {
+    /* iOS Safari Camera Start Overlay */
+    #ios-start-overlay {
       position: fixed;
       inset: 0;
       z-index: 999999;
-      background: rgba(7, 10, 18, 0.95);
-      backdrop-filter: blur(16px);
+      background: rgba(7, 10, 18, 0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -49,17 +51,21 @@
       color: #fff;
     }
 
-    .permission-btn {
-      margin-top: 20px;
-      padding: 16px 32px;
-      border-radius: 30px;
+    .start-cam-btn {
+      margin-top: 24px;
+      padding: 18px 38px;
+      border-radius: 40px;
       background: linear-gradient(135deg, #10b981 0%, #059669 100%);
       color: #fff;
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 800;
       border: none;
-      box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
+      box-shadow: 0 0 35px rgba(16, 185, 129, 0.5);
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      touch-action: manipulation;
     }
 
     #ar-hud-overlay {
@@ -211,16 +217,18 @@
 </head>
 <body>
 
-  <!-- iPhone Safari Camera Permission Prompt Overlay -->
-  <div id="ios-permission-modal" style="display: none;">
-    <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+  <!-- Dedicated iPhone / Mobile Safari User Gesture Start Overlay -->
+  <div id="ios-start-overlay">
+    <div style="width: 72px; height: 72px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; margin-bottom: 18px;">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
     </div>
-    <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">iPhone Camera Access Required</h2>
-    <p style="color: #94a3b8; font-size: 14px; line-height: 1.5; max-width: 320px;">
-      Tap below to grant camera access to scan physical photos and reveal LiveMemories videos.
+    <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 10px; font-family: serif;">LiveMemories AR Camera</h2>
+    <p style="color: #94a3b8; font-size: 15px; line-height: 1.5; max-width: 340px;">
+      Tap below to start your iPhone camera and scan physical photos to play videos.
     </p>
-    <button id="request-cam-btn" class="permission-btn">📷 Allow Camera Access</button>
+    <button id="start-ar-btn" class="start-cam-btn">
+      📷 Start iPhone Camera Scanner
+    </button>
   </div>
 
   <!-- AR HUD Overlay -->
@@ -256,7 +264,7 @@
 
   <!-- A-Frame WebAR Scene -->
   <a-scene 
-    mindar-image="imageTargetSrc: /targets/targets.mind; autoStart: true; filterMinCF: 0.00001; filterBeta: 0.0001; missTolerance: 18; warmupTolerance: 3; uiScanning: #reticle; uiLoading: no;" 
+    mindar-image="imageTargetSrc: /targets/targets.mind; autoStart: false; filterMinCF: 0.00001; filterBeta: 0.0001; missTolerance: 18; warmupTolerance: 3; uiScanning: #reticle; uiLoading: no;" 
     color-space="sRGB" 
     renderer="colorManagement: true, physicallyCorrectLights: true" 
     vr-mode-ui="enabled: false" 
@@ -291,6 +299,8 @@
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const sceneEl = document.querySelector('a-scene');
+      const startArBtn = document.getElementById('start-ar-btn');
+      const iosOverlay = document.getElementById('ios-start-overlay');
       const targetEntity = document.querySelector('#target-entity-0');
       const statusDot = document.getElementById('status-dot');
       const statusText = document.getElementById('status-text');
@@ -300,41 +310,8 @@
       const cameraFlipBtn = document.getElementById('camera-flip-btn');
       const exitScannerBtn = document.getElementById('exit-scanner-btn');
       const videoStream = document.getElementById('ar-video-stream');
-      const iosModal = document.getElementById('ios-permission-modal');
-      const requestCamBtn = document.getElementById('request-cam-btn');
 
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-      async function checkCameraPermissions() {
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            stream.getTracks().forEach(track => track.stop());
-            if (iosModal) iosModal.style.display = 'none';
-          } catch (err) {
-            console.warn("Camera permission prompt needed:", err);
-            if (isIOS && iosModal) {
-              iosModal.style.display = 'flex';
-            }
-          }
-        }
-      }
-
-      if (requestCamBtn) {
-        requestCamBtn.addEventListener('click', async () => {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            stream.getTracks().forEach(track => track.stop());
-            if (iosModal) iosModal.style.display = 'none';
-            window.location.reload();
-          } catch (e) {
-            alert("Please allow camera access in iPhone Settings -> Safari -> Camera.");
-          }
-        });
-      }
-
-      checkCameraPermissions();
-
+      // Check active video
       const urlParams = new URLSearchParams(window.location.search);
       let activeMediaUrl = urlParams.get('mediaUrl') || urlParams.get('videoUrl');
 
@@ -352,13 +329,42 @@
         videoStream.setAttribute('src', activeMediaUrl);
       }
 
+      // Explicit tap gesture for iPhone Safari WebRTC Camera Authorization
+      async function startCameraScanner() {
+        try {
+          // Request camera explicitly with facingMode: 'environment' (rear camera)
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+              video: { 
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              } 
+            });
+            // Stop temporary stream so MindAR takes control
+            stream.getTracks().forEach(track => track.stop());
+          }
+
+          if (iosOverlay) iosOverlay.style.display = 'none';
+
+          // Start MindAR system
+          const arSystem = sceneEl.systems["mindar-image-system"];
+          if (arSystem) {
+            arSystem.start();
+          }
+        } catch (err) {
+          console.error("iPhone camera access error:", err);
+          alert("iPhone Camera Access: Please tap 'Allow' when Safari prompts for camera access, or enable Camera in Settings -> Safari.");
+        }
+      }
+
+      if (startArBtn) {
+        startArBtn.addEventListener('click', startCameraScanner);
+      }
+
       if (exitScannerBtn) {
         exitScannerBtn.addEventListener('click', () => {
-          if (window.top !== window.self) {
-            window.parent.postMessage('EXIT_AR', '*');
-          } else {
-            window.location.href = '/';
-          }
+          window.location.href = '/';
         });
       }
 
