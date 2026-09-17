@@ -24,7 +24,8 @@
       height: 100dvh;
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #000;
+      background-color: transparent !important;
+      background: transparent !important;
       -webkit-tap-highlight-color: transparent;
     }
 
@@ -32,6 +33,8 @@
       width: 100% !important;
       height: 100% !important;
       object-fit: cover !important;
+      background-color: transparent !important;
+      background: transparent !important;
     }
 
     /* iOS Safari Camera Start Overlay */
@@ -266,7 +269,7 @@
   <a-scene 
     mindar-image="imageTargetSrc: /targets/targets.mind; autoStart: false; filterMinCF: 0.00001; filterBeta: 0.0001; missTolerance: 18; warmupTolerance: 3; uiScanning: #reticle; uiLoading: no;" 
     color-space="sRGB" 
-    renderer="colorManagement: true, physicallyCorrectLights: true" 
+    renderer="colorManagement: true, physicallyCorrectLights: true, alpha: true" 
     vr-mode-ui="enabled: false" 
     device-orientation-permission-ui="enabled: false"
   >
@@ -338,12 +341,32 @@
         return sceneEl.systems["mindar-image-system"];
       }
 
+      function applyWKWebViewVideoFixes(arSystem) {
+        if (arSystem && arSystem.video) {
+          const v = arSystem.video;
+          v.setAttribute('playsinline', '');
+          v.setAttribute('webkit-playsinline', '');
+          v.muted = true;
+          v.style.position = 'fixed';
+          v.style.top = '0px';
+          v.style.left = '0px';
+          v.style.width = '100vw';
+          v.style.height = '100vh';
+          v.style.objectFit = 'cover';
+          v.style.zIndex = '-2';
+          v.style.display = 'block';
+          v.style.visibility = 'visible';
+          v.play().catch(e => console.log("Video play note:", e));
+        }
+      }
+
       async function startCameraScanner() {
         try {
           const arSystem = await getArSystem();
           if (arSystem) {
             if (iosOverlay) iosOverlay.style.display = 'none';
             await arSystem.start();
+            applyWKWebViewVideoFixes(arSystem);
             console.log("MindAR Camera initialized successfully!");
           }
         } catch (err) {
@@ -358,6 +381,7 @@
         if (arSystem) {
           arSystem.start().then(() => {
             if (iosOverlay) iosOverlay.style.display = 'none';
+            applyWKWebViewVideoFixes(arSystem);
           }).catch(err => {
             console.log("Auto-start waiting for user tap gesture (Safari/iOS requirement):", err);
           });
