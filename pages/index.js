@@ -4,13 +4,11 @@ import { optimizeTargetPhotoForAR } from '../lib/imageContrastOptimizer';
 import { getGlobalARPairings, registerGlobalARPairing } from '../lib/arRegistry';
 import { 
   Camera, Sparkles, Upload, Video, Image as ImageIcon, Copy, Check, 
-  Share2, ArrowRight, Play, RefreshCw, Layers, ShieldCheck, Sun, Zap 
+  Share2, ArrowRight, Play, RefreshCw, Layers, ShieldCheck, Sun, Zap,
+  BookOpen, Heart, Palette, Gift, CheckCircle, ChevronRight, Smartphone, Eye
 } from 'lucide-react';
 
-export default function WebARApp() {
-  const [arActive, setArActive] = useState(false);
-  
-  // Photo & Video Pairing State
+export default function FrameAliveApp() {
   const [targetImage, setTargetImage] = useState(null);
   const [targetImagePreview, setTargetImagePreview] = useState('');
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -20,41 +18,30 @@ export default function WebARApp() {
   const [customVideoUrl, setCustomVideoUrl] = useState('');
   const [customTitle, setCustomTitle] = useState('');
 
-  // Global Catalog
   const [globalCatalog, setGlobalCatalog] = useState([]);
-  const [activeArMedia, setActiveArMedia] = useState(null);
-
-  // Modals & Notifications
   const [showTargetShowcase, setShowTargetShowcase] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Load Central Global AR Catalog
   const loadCatalog = async () => {
     const pairings = await getGlobalARPairings();
     setGlobalCatalog(pairings);
-    if (pairings && pairings.length > 0 && !activeArMedia) {
-      setActiveArMedia(pairings[0]);
-    }
   };
 
   useEffect(() => {
     loadCatalog();
   }, []);
 
-  // Handle Target Photo Selection with Automated Feature Contrast Optimizer
   const handleTargetPhotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       setIsOptimizing(true);
       setTargetImage(file);
-      // Run automated feature contrast enhancer for flares and blurs
       const optimized = await optimizeTargetPhotoForAR(file);
       setTargetImagePreview(optimized.previewUrl || URL.createObjectURL(file));
       setIsOptimizing(false);
     }
   };
 
-  // Handle Video / Overlay Selection
   const handleVideoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -68,11 +55,25 @@ export default function WebARApp() {
     }
   };
 
-  // Register Pair & Launch Scanner
+  const openCameraScanner = (mediaObj = null) => {
+    let videoUrlToUse = mediaObj?.video_url || mediaObj?.media_url || videoPreview || customVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+    let titleToUse = mediaObj?.title || customTitle || 'FrameALIVE Video Overlay';
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify({
+        media_url: videoUrlToUse,
+        media_type: 'video',
+        title: titleToUse
+      }));
+
+      window.location.href = `/ar-lens-engine.html?videoUrl=${encodeURIComponent(videoUrlToUse)}&title=${encodeURIComponent(titleToUse)}`;
+    }
+  };
+
   const handleRegisterAndLaunchAR = async () => {
     const finalVideoUrl = videoPreview || customVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
     const finalPhotoUrl = targetImagePreview || '/targets/sample-target-1.png';
-    const finalTitle = customTitle || 'Augmented Video Overlay';
+    const finalTitle = customTitle || 'FrameALIVE Video Overlay';
 
     const newPair = {
       photoUrl: finalPhotoUrl,
@@ -82,176 +83,154 @@ export default function WebARApp() {
 
     const updatedCatalog = await registerGlobalARPairing(newPair);
     setGlobalCatalog(updatedCatalog);
-    setActiveArMedia(newPair);
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify({
-        media_url: finalVideoUrl,
-        media_type: 'video',
-        title: finalTitle
-      }));
-    }
-
     setSaveSuccess(true);
+
     setTimeout(() => {
       setSaveSuccess(false);
-      setArActive(true);
+      openCameraScanner(newPair);
     }, 600);
   };
 
   return (
     <div style={{ width: '100vw', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
       
-      {/* FULLSCREEN AR CAMERA VIEWPORT */}
-      {arActive ? (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#000' }}>
-          <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '20px',
-            right: '20px',
-            zIndex: 100000,
-            display: 'flex',
-            justify: 'space-between',
-            alignItems: 'center',
-            pointerEvents: 'none'
-          }}>
-            <button 
-              onClick={() => setArActive(false)} 
-              className="btn-primary"
-              style={{
-                pointerEvents: 'auto',
-                padding: '10px 20px',
-                background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
-                color: '#fff',
-                borderRadius: '30px',
-                fontWeight: '700',
-                fontSize: '14px',
-                boxShadow: '0 0 25px rgba(244, 63, 94, 0.4)'
-              }}
-            >
-              ✕ Exit AR Scanner
-            </button>
-
-            <button 
-              onClick={() => setShowTargetShowcase(true)}
-              className="btn-secondary"
-              style={{
-                pointerEvents: 'auto',
-                padding: '10px 18px',
-                borderRadius: '30px',
-                background: 'rgba(15, 23, 42, 0.85)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                color: '#fff',
-                fontWeight: '600'
-              }}
-            >
-              <ImageIcon size={16} /> Printable Target Cards
-            </button>
-          </div>
-
-          <iframe 
-            src={`/ar-lens-engine.html${activeArMedia ? `?videoUrl=${encodeURIComponent(activeArMedia.video_url || activeArMedia.media_url)}&title=${encodeURIComponent(activeArMedia.title)}` : ''}`} 
-            allow="camera; microphone; display-capture" 
-            style={{ width: '100%', height: '100%', border: 'none' }} 
-          />
-        </div>
-      ) : null}
-
-      {/* CLEAN MAIN WEBSITE VIEW */}
-      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '32px 20px' }}>
-        
-        {/* Simple Brand Navbar */}
-        <header style={{
-          display: 'flex',
-          justify: 'space-between',
-          alignItems: 'center',
-          paddingBottom: '24px',
-          borderBottom: '1px solid var(--border-glass)',
-          marginBottom: '36px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <header style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 999,
+        background: 'rgba(7, 10, 18, 0.85)',
+        backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid var(--border-glass)',
+        padding: '16px 24px'
+      }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+              width: '40px',
+              height: '40px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#070a12',
-              boxShadow: 'var(--shadow-glow-cyan)'
+              color: '#fff',
+              boxShadow: 'var(--shadow-glow-emerald)'
             }}>
-              <Camera size={24} />
+              <Camera size={22} />
             </div>
             <div>
-              <h1 className="text-gradient" style={{ fontSize: '22px', fontWeight: '800', lineHeight: '1.2' }}>
-                No-QR WebAR Studio
-              </h1>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Global AR Photo Scanner • Optimized for Lens Flares, Glare & Motion Blur
-              </p>
+              <span className="font-serif text-gradient" style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>
+                FrameALIVE
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--accent-mint)', display: 'block', fontWeight: '600', marginTop: '-2px' }}>
+                Augmented Reality Print Studio
+              </span>
             </div>
           </div>
 
-          <button 
-            onClick={() => setArActive(true)} 
-            className="btn-primary btn-emerald"
-            style={{ padding: '10px 22px', fontSize: '14px', borderRadius: '30px' }}
-          >
-            <Camera size={18} /> Open Camera Scanner
-          </button>
-        </header>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button 
+              onClick={() => openCameraScanner()}
+              className="btn-primary"
+              style={{ padding: '10px 22px', fontSize: '14px' }}
+            >
+              <Camera size={18} /> Open Camera Scanner
+            </button>
+          </div>
+        </div>
+      </header>
 
-        {/* TWO PRIMARY STUDIO OPTIONS */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '36px' }}>
+      <section style={{ padding: '60px 24px 40px 24px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '6px 16px',
+          borderRadius: '30px',
+          background: 'rgba(16, 185, 129, 0.12)',
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          marginBottom: '20px'
+        }}>
+          <Sparkles size={14} style={{ color: 'var(--accent-emerald)' }} />
+          <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent-mint)', letterSpacing: '0.05em' }}>
+            NO QR CODES REQUIRED • IPHONE SAFARI COMPATIBLE
+          </span>
+        </div>
+
+        <h1 className="font-serif text-gradient" style={{ fontSize: 'clamp(32px, 5vw, 54px)', fontWeight: '800', lineHeight: '1.15', marginBottom: '20px' }}>
+          Bring Your Printed Memories & Artwork to Life
+        </h1>
+
+        <p style={{ fontSize: '17px', color: 'var(--text-muted)', lineHeight: '1.6', maxWidth: '720px', margin: '0 auto 32px auto' }}>
+          Scan any printed photo, magazine, album, or poster with your smartphone camera to reveal hidden videos, animations, and sound.
+        </p>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => openCameraScanner()}
+            className="btn-primary"
+            style={{ padding: '16px 36px', fontSize: '16px' }}
+          >
+            <Camera size={22} /> Scan Photo Print Now
+          </button>
+
+          <a 
+            href="#create-studio" 
+            className="btn-secondary"
+            style={{ padding: '16px 28px', fontSize: '15px' }}
+          >
+            <Upload size={18} /> Create Your FrameALIVE
+          </a>
+        </div>
+      </section>
+
+      <section id="create-studio" style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: '28px', marginBottom: '48px' }}>
           
-          {/* OPTION 1: SCAN PHOTO PRINT */}
           <div className="glass-panel glass-panel-interactive" style={{
-            padding: '32px',
+            padding: '36px',
             display: 'flex',
             flexDirection: 'column',
             justify: 'space-between',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            boxShadow: '0 0 30px rgba(16, 185, 129, 0.1)'
+            border: '1px solid rgba(16, 185, 129, 0.35)',
+            boxShadow: '0 0 35px rgba(16, 185, 129, 0.12)'
           }}>
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
                 <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '14px',
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '16px',
                   background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: 'var(--accent-emerald)'
                 }}>
-                  <Camera size={24} />
+                  <Smartphone size={26} />
                 </div>
 
                 <span className="pulse-badge">
-                  <Zap size={12} /> Auto-Recognition Active
+                  <Zap size={12} /> iPhone & Android Compatible
                 </span>
               </div>
 
-              <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>
-                1. Scan Photo Print
+              <h2 className="font-serif" style={{ fontSize: '24px', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>
+                1. Scan Printed Photo
               </h2>
-              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
-                Point your phone camera at any registered target photo print. The system automatically recognizes the photo under harsh lighting, lens flares, and motion blurs!
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.65', marginBottom: '24px' }}>
+                Tap below to open your phone camera. Point your camera at any printed photo or sample target card to reveal the augmented video overlay instantly!
               </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <button 
-                onClick={() => setArActive(true)}
-                className="btn-primary btn-emerald"
-                style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '14px' }}
+                onClick={() => openCameraScanner()}
+                className="btn-primary"
+                style={{ width: '100%', padding: '16px', fontSize: '16px' }}
               >
-                <Camera size={20} /> Open Camera Scanner
+                <Camera size={20} /> Launch iPhone Camera Scanner
               </button>
 
               <button 
@@ -259,45 +238,43 @@ export default function WebARApp() {
                 className="btn-secondary"
                 style={{ width: '100%', justifyContent: 'center' }}
               >
-                <ImageIcon size={16} /> View Printable Sample Target Cards
+                <ImageIcon size={16} /> Printable Sample Target Cards
               </button>
             </div>
           </div>
 
-          {/* OPTION 2: UPLOAD & PAIR PHOTO + VIDEO */}
           <div className="glass-panel glass-panel-interactive" style={{
-            padding: '32px',
-            border: '1px solid rgba(0, 242, 254, 0.3)',
-            boxShadow: '0 0 30px rgba(0, 242, 254, 0.1)'
+            padding: '36px',
+            border: '1px solid rgba(0, 242, 254, 0.35)',
+            boxShadow: '0 0 35px rgba(0, 242, 254, 0.12)'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
               <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
+                width: '52px',
+                height: '52px',
+                borderRadius: '16px',
                 background: 'rgba(0, 242, 254, 0.15)',
-                border: '1px solid rgba(0, 242, 254, 0.3)',
+                border: '1px solid rgba(0, 242, 254, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--accent-cyan)'
               }}>
-                <Upload size={24} />
+                <Upload size={26} />
               </div>
 
-              <span className="pulse-badge" style={{ background: 'rgba(56,189,248,0.15)', color: '#38bdf8', borderColor: 'rgba(56,189,248,0.3)' }}>
+              <span className="pulse-badge" style={{ background: 'rgba(56,189,248,0.15)', color: '#38bdf8', borderColor: 'rgba(56,189,248,0.35)' }}>
                 <Sun size={12} /> Flares & Blur Enhanced
               </span>
             </div>
 
-            <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>
+            <h2 className="font-serif" style={{ fontSize: '24px', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>
               2. Upload Photo & Video Pair
             </h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '20px' }}>
-              Pair a <strong>Target Photo</strong> with a <strong>Video</strong>. Anyone scanning the photo will see your video play automatically!
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.65', marginBottom: '20px' }}>
+              Upload your <strong>Target Photo</strong> and attach the <strong>Video</strong> that plays when scanned.
             </p>
 
-            {/* Target Photo Upload */}
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <label style={{ fontSize: '12px', color: 'var(--accent-cyan)', fontWeight: '700' }}>
@@ -305,14 +282,14 @@ export default function WebARApp() {
                 </label>
                 {isOptimizing && (
                   <span style={{ fontSize: '11px', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <RefreshCw size={11} className="spin-anim" /> Enhancing feature contrast...
+                    <RefreshCw size={11} className="spin-anim" /> Sharpening contrast...
                   </span>
                 )}
               </div>
 
               <div style={{
                 border: '1.5px dashed rgba(0, 242, 254, 0.4)',
-                borderRadius: '12px',
+                borderRadius: '14px',
                 padding: '12px',
                 background: 'rgba(15, 23, 42, 0.6)',
                 position: 'relative',
@@ -323,9 +300,9 @@ export default function WebARApp() {
               }}>
                 <input type="file" accept="image/*" onChange={handleTargetPhotoChange} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
                 {targetImagePreview ? (
-                  <img src={targetImagePreview} alt="Target" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                  <img src={targetImagePreview} alt="Target" style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover' }} />
                 ) : (
-                  <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                     <ImageIcon size={20} />
                   </div>
                 )}
@@ -333,19 +310,18 @@ export default function WebARApp() {
                   <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>
                     {targetImage ? targetImage.name : 'Select or Drop Target Photo'}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-sharpens for glare & blur resilience</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-enhanced for glare & blur</div>
                 </div>
               </div>
             </div>
 
-            {/* Video Overlay Upload */}
             <div style={{ marginBottom: '24px' }}>
               <label style={{ fontSize: '12px', color: 'var(--accent-emerald)', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
                 🎬 OVERLAY VIDEO (Video to play when scanned)
               </label>
               <div style={{
                 border: '1.5px dashed rgba(16, 185, 129, 0.4)',
-                borderRadius: '12px',
+                borderRadius: '14px',
                 padding: '12px',
                 background: 'rgba(15, 23, 42, 0.6)',
                 position: 'relative',
@@ -356,9 +332,9 @@ export default function WebARApp() {
               }}>
                 <input type="file" accept="video/*" onChange={handleVideoChange} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
                 {videoPreview ? (
-                  <video src={videoPreview} style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                  <video src={videoPreview} style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover' }} />
                 ) : (
-                  <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                     <Video size={20} />
                   </div>
                 )}
@@ -374,71 +350,91 @@ export default function WebARApp() {
             <button 
               onClick={handleRegisterAndLaunchAR}
               className="btn-primary"
-              style={{ width: '100%', padding: '14px', fontSize: '15px', borderRadius: '14px' }}
+              style={{ width: '100%', padding: '16px', fontSize: '16px' }}
             >
               {saveSuccess ? <Check size={18} /> : <Play size={18} />}
-              {saveSuccess ? 'Saved to Global Catalog!' : 'Save Pair & Open Scanner'}
+              {saveSuccess ? 'Saved! Launching Scanner...' : 'Save Pair & Open Scanner'}
             </button>
           </div>
         </div>
 
-        {/* REGISTERED GLOBAL CATALOG SECTION */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={18} style={{ color: 'var(--accent-purple)' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>
-                Global AR Catalog ({globalCatalog.length} Photo-Video Pairings)
-              </h3>
-            </div>
-            <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
-              Anyone visiting the website scans these photos to play paired videos!
-            </span>
+        <div style={{ marginBottom: '56px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <h2 className="font-serif text-gradient" style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>
+              How FrameALIVE Works in 3 Easy Steps
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+              No QR codes on your prints. Pure image recognition technology.
+            </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
-            {globalCatalog.map((item, idx) => (
-              <div key={item.id || idx} style={{
-                background: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid var(--border-glass)',
-                borderRadius: '12px',
-                padding: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px'
-              }}>
-                <div style={{ overflow: 'hidden' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {item.title || item.target_name}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Target Photo: {item.target_name || 'Registered Target'}
-                  </div>
-                </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <div style={{ fontSize: '36px', fontWeight: '900', color: 'var(--accent-emerald)', marginBottom: '12px' }}>01</div>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>Upload Target Photo</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                Select any photo, picture, or artwork you want to print or display on wall frames, albums, or books.
+              </p>
+            </div>
 
-                <button 
-                  onClick={() => {
-                    setActiveArMedia(item);
-                    setArActive(true);
-                  }}
-                  className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '12px', minHeight: '34px', flexShrink: 0 }}
-                >
-                  <Camera size={13} style={{ color: 'var(--accent-cyan)' }} /> Test Scan
-                </button>
-              </div>
-            ))}
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <div style={{ fontSize: '36px', fontWeight: '900', color: 'var(--accent-cyan)', marginBottom: '12px' }}>02</div>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>Attach Overlay Video</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                Attach a video memory, animation, or audio recording that will reveal itself when the photo is scanned.
+              </p>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '24px' }}>
+              <div style={{ fontSize: '36px', fontWeight: '900', color: 'var(--accent-mint)', marginBottom: '12px' }}>03</div>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>Scan & Watch It Come Alive</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                Point your iPhone or Android camera at the photo print. The video streams seamlessly over the print in 3D WebAR!
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Printable Sample Targets Modal */}
+        <div style={{ marginBottom: '48px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <h2 className="font-serif text-gradient" style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>
+              Endless Possibilities for Your Prints
+            </h2>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '20px' }}>
+            <div className="glass-panel" style={{ padding: '20px' }}>
+              <Heart size={24} style={{ color: 'var(--accent-emerald)', marginBottom: '12px' }} />
+              <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '6px' }}>Wedding & Photo Albums</h4>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bring static wedding photo books to life with full HD video memories.</p>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '20px' }}>
+              <BookOpen size={24} style={{ color: 'var(--accent-cyan)', marginBottom: '12px' }} />
+              <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '6px' }}>Magazines & Books</h4>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Enhance print publications with interactive video demonstrations.</p>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '20px' }}>
+              <Palette size={24} style={{ color: 'var(--accent-purple)', marginBottom: '12px' }} />
+              <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '6px' }}>Art & Gallery Prints</h4>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Reveal behind-the-scenes creation videos over gallery artwork prints.</p>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '20px' }}>
+              <Gift size={24} style={{ color: 'var(--accent-amber)', marginBottom: '12px' }} />
+              <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff', marginBottom: '6px' }}>Greeting Cards & Gifts</h4>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Send personalized video messages embedded inside printed cards.</p>
+            </div>
+          </div>
+        </div>
+
         <TargetShowcaseModal 
           isOpen={showTargetShowcase} 
           onClose={() => setShowTargetShowcase(false)} 
-          onOpenScanner={() => setArActive(true)}
+          onOpenScanner={() => openCameraScanner()}
         />
-      </div>
+      </section>
     </div>
   );
 }
