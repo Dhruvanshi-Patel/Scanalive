@@ -327,36 +327,42 @@
 
       if (activeMediaUrl && videoStream) {
         videoStream.setAttribute('src', activeMediaUrl);
+        videoStream.load();
       }
 
-      // Explicit tap gesture for iPhone Safari WebRTC Camera Authorization
+      // Ensure A-Frame scene is loaded before starting MindAR system
+      async function getArSystem() {
+        if (!sceneEl.hasLoaded) {
+          await new Promise(resolve => sceneEl.addEventListener('loaded', resolve, { once: true }));
+        }
+        return sceneEl.systems["mindar-image-system"];
+      }
+
       async function startCameraScanner() {
         try {
-          // Request camera explicitly with facingMode: 'environment' (rear camera)
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-              video: { 
-                facingMode: { ideal: "environment" },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-              } 
-            });
-            // Stop temporary stream so MindAR takes control
-            stream.getTracks().forEach(track => track.stop());
-          }
-
-          if (iosOverlay) iosOverlay.style.display = 'none';
-
-          // Start MindAR system
-          const arSystem = sceneEl.systems["mindar-image-system"];
+          const arSystem = await getArSystem();
           if (arSystem) {
-            arSystem.start();
+            if (iosOverlay) iosOverlay.style.display = 'none';
+            await arSystem.start();
+            console.log("MindAR Camera initialized successfully!");
           }
         } catch (err) {
-          console.error("iPhone camera access error:", err);
-          alert("iPhone Camera Access: Please tap 'Allow' when Safari prompts for camera access, or enable Camera in Settings -> Safari.");
+          console.error("Camera access error:", err);
+          alert("Camera Permission Error: Please allow camera access in your browser settings and try again.");
         }
       }
+
+      // Attempt automatic start on page load (works on Chrome Android & desktop)
+      sceneEl.addEventListener('loaded', () => {
+        const arSystem = sceneEl.systems["mindar-image-system"];
+        if (arSystem) {
+          arSystem.start().then(() => {
+            if (iosOverlay) iosOverlay.style.display = 'none';
+          }).catch(err => {
+            console.log("Auto-start waiting for user tap gesture (Safari/iOS requirement):", err);
+          });
+        }
+      });
 
       if (startArBtn) {
         startArBtn.addEventListener('click', startCameraScanner);
@@ -395,8 +401,8 @@
       }
 
       if (cameraFlipBtn) {
-        cameraFlipBtn.addEventListener("click", () => {
-          const arSystem = sceneEl.systems["mindar-image-system"];
+        cameraFlipBtn.addEventListener("click", async () => {
+          const arSystem = await getArSystem();
           if (arSystem) {
             arSystem.switchCamera();
           }
