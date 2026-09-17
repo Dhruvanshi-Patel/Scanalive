@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import TargetShowcaseModal from '../components/TargetShowcaseModal';
 import { optimizeTargetPhotoForAR } from '../lib/imageContrastOptimizer';
-import { getGlobalARPairings, registerGlobalARPairing } from '../lib/arRegistry';
+import { getGlobalARPairings, registerGlobalARPairing, removeGlobalARPairing } from '../lib/arRegistry';
 import { 
   Camera, Sparkles, Upload, Video, Image as ImageIcon, Copy, Check, 
   Share2, ArrowRight, Play, RefreshCw, Layers, ShieldCheck, Sun, Zap,
-  BookOpen, Heart, Palette, Gift, CheckCircle, ChevronRight, Smartphone, Eye
+  BookOpen, Heart, Palette, Gift, CheckCircle, ChevronRight, Smartphone, Eye, Trash2 
 } from 'lucide-react';
 
 export default function FrameAliveApp() {
@@ -89,6 +89,13 @@ export default function FrameAliveApp() {
       setSaveSuccess(false);
       openCameraScanner(newPair);
     }, 600);
+  };
+
+  const handleDeletePair = async (pairId) => {
+    if (window.confirm("Are you sure you want to delete this Photo & Video pair from the catalog?")) {
+      const updated = await removeGlobalARPairing(pairId);
+      setGlobalCatalog(updated);
+    }
   };
 
   return (
@@ -355,6 +362,72 @@ export default function FrameAliveApp() {
               {saveSuccess ? <Check size={18} /> : <Play size={18} />}
               {saveSuccess ? 'Saved! Launching Scanner...' : 'Save Pair & Open Scanner'}
             </button>
+          </div>
+        </div>
+
+        <div className="glass-panel" style={{ padding: '28px', marginBottom: '48px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Layers size={20} style={{ color: 'var(--accent-emerald)' }} />
+              <h3 className="font-serif" style={{ fontSize: '18px', fontWeight: '800', color: '#fff' }}>
+                Active Photo & Video Pairs ({globalCatalog.length})
+              </h3>
+            </div>
+            <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
+              Anyone visiting the site and scanning these photos will reveal their paired videos.
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            {globalCatalog.map((item, idx) => (
+              <div key={item.id || idx} style={{
+                background: 'rgba(15, 23, 42, 0.7)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '14px',
+                padding: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                justify: 'space-between',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>
+                      {item.title || item.target_name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Target: {item.target_name || 'Registered Photo Print'}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => handleDeletePair(item.id)}
+                    style={{
+                      background: 'rgba(244, 63, 94, 0.15)',
+                      border: '1px solid rgba(244, 63, 94, 0.3)',
+                      color: '#fda4af',
+                      borderRadius: '8px',
+                      padding: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    title="Delete Photo & Video Pair"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => openCameraScanner(item)}
+                  className="btn-primary"
+                  style={{ padding: '8px 14px', fontSize: '13px', minHeight: '38px', width: '100%' }}
+                >
+                  <Camera size={14} /> Scan This Photo
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 
