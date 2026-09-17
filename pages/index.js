@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import TargetShowcaseModal from '../components/TargetShowcaseModal';
+import { optimizeTargetPhotoForAR } from '../lib/imageContrastOptimizer';
+import { getGlobalARPairings, registerGlobalARPairing } from '../lib/arRegistry';
 import { 
   Camera, Sparkles, Upload, Video, Image as ImageIcon, Copy, Check, 
-  Share2, ArrowRight, Play, RefreshCw, Layers, Sparkle, Film
+  Share2, ArrowRight, Play, RefreshCw, Layers, ShieldCheck, Sun, Zap 
 } from 'lucide-react';
 
 export default function WebARApp() {
@@ -11,48 +13,44 @@ export default function WebARApp() {
   // Photo & Video Pairing State
   const [targetImage, setTargetImage] = useState(null);
   const [targetImagePreview, setTargetImagePreview] = useState('');
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
   const [videoFile, setVideoFile] = useState(null);
   const [videoPreview, setVideoPreview] = useState('');
   const [customVideoUrl, setCustomVideoUrl] = useState('');
   const [customTitle, setCustomTitle] = useState('');
 
-  // Active Shared AR State
+  // Global Catalog
+  const [globalCatalog, setGlobalCatalog] = useState([]);
   const [activeArMedia, setActiveArMedia] = useState(null);
-  const [shareLink, setShareLink] = useState('');
-  const [copiedLink, setCopiedLink] = useState(false);
 
-  // Modals
+  // Modals & Notifications
   const [showTargetShowcase, setShowTargetShowcase] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Check URL parameters for shared links (recipients opening shared WebAR links)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const videoUrl = urlParams.get('videoUrl') || urlParams.get('mediaUrl');
-      const photoUrl = urlParams.get('photoUrl');
-      const title = urlParams.get('title');
-
-      if (videoUrl) {
-        const sharedObj = {
-          media_url: videoUrl,
-          media_type: 'video',
-          photo_url: photoUrl || '',
-          title: title || 'Shared AR Video Overlay'
-        };
-        setActiveArMedia(sharedObj);
-        localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify(sharedObj));
-        // Auto-launch WebAR scanner for shared link recipients
-        setArActive(true);
-      }
+  // Load Central Global AR Catalog
+  const loadCatalog = async () => {
+    const pairings = await getGlobalARPairings();
+    setGlobalCatalog(pairings);
+    if (pairings && pairings.length > 0 && !activeArMedia) {
+      setActiveArMedia(pairings[0]);
     }
+  };
+
+  useEffect(() => {
+    loadCatalog();
   }, []);
 
-  // Handle Target Photo Selection
-  const handleTargetPhotoChange = (e) => {
+  // Handle Target Photo Selection with Automated Feature Contrast Optimizer
+  const handleTargetPhotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
+      setIsOptimizing(true);
       setTargetImage(file);
-      setTargetImagePreview(URL.createObjectURL(file));
+      // Run automated feature contrast enhancer for flares and blurs
+      const optimized = await optimizeTargetPhotoForAR(file);
+      setTargetImagePreview(optimized.previewUrl || URL.createObjectURL(file));
+      setIsOptimizing(false);
     }
   };
 
@@ -61,47 +59,44 @@ export default function WebARApp() {
     const file = e.target.files[0];
     if (file) {
       setVideoFile(file);
-      setVideoPreview(URL.createObjectURL(file));
+      const url = URL.createObjectURL(file);
+      setVideoPreview(url);
+      setCustomVideoUrl(url);
       if (!customTitle) {
         setCustomTitle(file.name.replace(/\.[^/.]+$/, ""));
       }
     }
   };
 
-  // Launch WebAR Scanner with paired target & video
-  const handleLaunchAR = (mediaObj = null) => {
-    let mediaToUse = mediaObj;
+  // Register Pair & Launch Scanner
+  const handleRegisterAndLaunchAR = async () => {
+    const finalVideoUrl = videoPreview || customVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+    const finalPhotoUrl = targetImagePreview || '/targets/sample-target-1.png';
+    const finalTitle = customTitle || 'Augmented Video Overlay';
 
-    if (!mediaToUse) {
-      const finalVideoUrl = videoPreview || customVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
-      mediaToUse = {
+    const newPair = {
+      photoUrl: finalPhotoUrl,
+      videoUrl: finalVideoUrl,
+      title: finalTitle
+    };
+
+    const updatedCatalog = await registerGlobalARPairing(newPair);
+    setGlobalCatalog(updatedCatalog);
+    setActiveArMedia(newPair);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify({
         media_url: finalVideoUrl,
         media_type: 'video',
-        photo_url: targetImagePreview || '',
-        title: customTitle || 'Custom AR Video Overlay'
-      };
+        title: finalTitle
+      }));
     }
 
-    setActiveArMedia(mediaToUse);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify(mediaToUse));
-      const baseUrl = window.location.origin;
-      const generatedLink = `${baseUrl}/?videoUrl=${encodeURIComponent(mediaToUse.media_url)}&title=${encodeURIComponent(mediaToUse.title)}`;
-      setShareLink(generatedLink);
-    }
-    setArActive(true);
-  };
-
-  const handleCopyLink = () => {
-    if (!shareLink && typeof window !== 'undefined') {
-      const baseUrl = window.location.origin;
-      const linkToCopy = `${baseUrl}/?videoUrl=${encodeURIComponent(activeArMedia?.media_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4')}&title=${encodeURIComponent(customTitle || 'AR Video')}`;
-      navigator.clipboard.writeText(linkToCopy);
-    } else {
-      navigator.clipboard.writeText(shareLink);
-    }
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setArActive(true);
+    }, 600);
   };
 
   return (
@@ -110,7 +105,6 @@ export default function WebARApp() {
       {/* FULLSCREEN AR CAMERA VIEWPORT */}
       {arActive ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#000' }}>
-          {/* Header Controls */}
           <div style={{
             position: 'absolute',
             top: '20px',
@@ -153,13 +147,12 @@ export default function WebARApp() {
                 fontWeight: '600'
               }}
             >
-              <ImageIcon size={16} /> Sample Printable Target Cards
+              <ImageIcon size={16} /> Printable Target Cards
             </button>
           </div>
 
-          {/* Standalone WebAR MindAR Camera Engine */}
           <iframe 
-            src={`/ar-lens-engine.html${activeArMedia ? `?mediaUrl=${encodeURIComponent(activeArMedia.media_url)}&mediaType=video&title=${encodeURIComponent(activeArMedia.title)}` : ''}`} 
+            src={`/ar-lens-engine.html${activeArMedia ? `?videoUrl=${encodeURIComponent(activeArMedia.video_url || activeArMedia.media_url)}&title=${encodeURIComponent(activeArMedia.title)}` : ''}`} 
             allow="camera; microphone; display-capture" 
             style={{ width: '100%', height: '100%', border: 'none' }} 
           />
@@ -194,27 +187,27 @@ export default function WebARApp() {
             </div>
             <div>
               <h1 className="text-gradient" style={{ fontSize: '22px', fontWeight: '800', lineHeight: '1.2' }}>
-                WebAR Scanner Studio
+                No-QR WebAR Studio
               </h1>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                No QR Codes Needed — Scan Physical Photos & Play Augmented Videos
+                Global AR Photo Scanner • Optimized for Lens Flares, Glare & Motion Blur
               </p>
             </div>
           </div>
 
           <button 
-            onClick={() => handleLaunchAR()} 
+            onClick={() => setArActive(true)} 
             className="btn-primary btn-emerald"
-            style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '30px' }}
+            style={{ padding: '10px 22px', fontSize: '14px', borderRadius: '30px' }}
           >
-            <Camera size={18} /> Open AR Scanner Camera
+            <Camera size={18} /> Open Camera Scanner
           </button>
         </header>
 
-        {/* TWO MAIN STUDIO OPTIONS */}
+        {/* TWO PRIMARY STUDIO OPTIONS */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '36px' }}>
           
-          {/* OPTION 1: SCAN PHYSICAL PHOTO */}
+          {/* OPTION 1: SCAN PHOTO PRINT */}
           <div className="glass-panel glass-panel-interactive" style={{
             padding: '32px',
             display: 'flex',
@@ -224,32 +217,37 @@ export default function WebARApp() {
             boxShadow: '0 0 30px rgba(16, 185, 129, 0.1)'
           }}>
             <div>
-              <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-emerald)',
-                marginBottom: '18px'
-              }}>
-                <Camera size={24} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '14px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--accent-emerald)'
+                }}>
+                  <Camera size={24} />
+                </div>
+
+                <span className="pulse-badge">
+                  <Zap size={12} /> Auto-Recognition Active
+                </span>
               </div>
 
               <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>
                 1. Scan Photo Print
               </h2>
               <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
-                Point your phone camera at any physical photo or printed target card to trigger the AR video overlay automatically without QR codes.
+                Point your phone camera at any registered target photo print. The system automatically recognizes the photo under harsh lighting, lens flares, and motion blurs!
               </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <button 
-                onClick={() => handleLaunchAR()}
+                onClick={() => setArActive(true)}
                 className="btn-primary btn-emerald"
                 style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '14px' }}
               >
@@ -266,39 +264,52 @@ export default function WebARApp() {
             </div>
           </div>
 
-          {/* OPTION 2: UPLOAD PHOTO & VIDEO TO PAIR */}
+          {/* OPTION 2: UPLOAD & PAIR PHOTO + VIDEO */}
           <div className="glass-panel glass-panel-interactive" style={{
             padding: '32px',
             border: '1px solid rgba(0, 242, 254, 0.3)',
             boxShadow: '0 0 30px rgba(0, 242, 254, 0.1)'
           }}>
-            <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '14px',
-              background: 'rgba(0, 242, 254, 0.15)',
-              border: '1px solid rgba(0, 242, 254, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--accent-cyan)',
-              marginBottom: '18px'
-            }}>
-              <Upload size={24} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '14px',
+                background: 'rgba(0, 242, 254, 0.15)',
+                border: '1px solid rgba(0, 242, 254, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--accent-cyan)'
+              }}>
+                <Upload size={24} />
+              </div>
+
+              <span className="pulse-badge" style={{ background: 'rgba(56,189,248,0.15)', color: '#38bdf8', borderColor: 'rgba(56,189,248,0.3)' }}>
+                <Sun size={12} /> Flares & Blur Enhanced
+              </span>
             </div>
 
             <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>
               2. Upload Photo & Video Pair
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '20px' }}>
-              Select a <strong>Target Photo</strong> and pair it with a <strong>Video</strong> that will play when the photo gets scanned.
+              Pair a <strong>Target Photo</strong> with a <strong>Video</strong>. Anyone scanning the photo will see your video play automatically!
             </p>
 
-            {/* Target Photo Uploader */}
+            {/* Target Photo Upload */}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--accent-cyan)', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                📸 TARGET PHOTO (The picture to scan)
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--accent-cyan)', fontWeight: '700' }}>
+                  📸 TARGET PHOTO (Picture to scan)
+                </label>
+                {isOptimizing && (
+                  <span style={{ fontSize: '11px', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <RefreshCw size={11} className="spin-anim" /> Enhancing feature contrast...
+                  </span>
+                )}
+              </div>
+
               <div style={{
                 border: '1.5px dashed rgba(0, 242, 254, 0.4)',
                 borderRadius: '12px',
@@ -322,15 +333,15 @@ export default function WebARApp() {
                   <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>
                     {targetImage ? targetImage.name : 'Select or Drop Target Photo'}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>JPG, PNG photo to scan</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-sharpens for glare & blur resilience</div>
                 </div>
               </div>
             </div>
 
-            {/* Video Overlay Uploader */}
+            {/* Video Overlay Upload */}
             <div style={{ marginBottom: '24px' }}>
               <label style={{ fontSize: '12px', color: 'var(--accent-emerald)', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
-                🎬 OVERLAY VIDEO (The video to play when scanned)
+                🎬 OVERLAY VIDEO (Video to play when scanned)
               </label>
               <div style={{
                 border: '1.5px dashed rgba(16, 185, 129, 0.4)',
@@ -355,43 +366,70 @@ export default function WebARApp() {
                   <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>
                     {videoFile ? videoFile.name : 'Select or Drop Video File'}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MP4, WEBM video overlay</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MP4, WEBM video file</div>
                 </div>
               </div>
             </div>
 
             <button 
-              onClick={() => handleLaunchAR()}
+              onClick={handleRegisterAndLaunchAR}
               className="btn-primary"
               style={{ width: '100%', padding: '14px', fontSize: '15px', borderRadius: '14px' }}
             >
-              <Play size={18} /> Launch AR & Save Paired Video
+              {saveSuccess ? <Check size={18} /> : <Play size={18} />}
+              {saveSuccess ? 'Saved to Global Catalog!' : 'Save Pair & Open Scanner'}
             </button>
           </div>
         </div>
 
-        {/* SHAREABLE WEBAR LINK CARD */}
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <Share2 size={18} style={{ color: 'var(--accent-cyan)' }} />
+        {/* REGISTERED GLOBAL CATALOG SECTION */}
+        <div className="glass-panel" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Layers size={18} style={{ color: 'var(--accent-purple)' }} />
               <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>
-                Shareable WebAR Link
+                Global AR Catalog ({globalCatalog.length} Photo-Video Pairings)
               </h3>
             </div>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              Send this link to anyone — when opened on their phone, scanning the target photo will play your video!
-            </p>
+            <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
+              Anyone visiting the website scans these photos to play paired videos!
+            </span>
           </div>
 
-          <button 
-            onClick={handleCopyLink}
-            className="btn-primary"
-            style={{ padding: '12px 20px', fontSize: '14px', borderRadius: '12px' }}
-          >
-            {copiedLink ? <Check size={16} /> : <Copy size={16} />}
-            {copiedLink ? 'Copied Shareable Link!' : 'Copy Shareable Link'}
-          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
+            {globalCatalog.map((item, idx) => (
+              <div key={item.id || idx} style={{
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '12px',
+                padding: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}>
+                <div style={{ overflow: 'hidden' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.title || item.target_name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Target Photo: {item.target_name || 'Registered Target'}
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => {
+                    setActiveArMedia(item);
+                    setArActive(true);
+                  }}
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '12px', minHeight: '34px', flexShrink: 0 }}
+                >
+                  <Camera size={13} style={{ color: 'var(--accent-cyan)' }} /> Test Scan
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Printable Sample Targets Modal */}
