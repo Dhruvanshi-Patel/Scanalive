@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured, recordLoginAudit } from '../lib/supabaseClient';
-import { getMockSession, setMockSession, clearMockSession, getMockLoginLogs, addMockLoginLog } from '../lib/mockAuth';
+import { getMockSession, setMockSession, clearMockSession, getMockLoginLogs } from '../lib/mockAuth';
 import LoginLogsTable from '../components/LoginLogsTable';
 import TargetShowcaseModal from '../components/TargetShowcaseModal';
 import SupabaseSetupModal from '../components/SupabaseSetupModal';
+import MediaManagerModal from '../components/MediaManagerModal';
 import { 
   Camera, ShieldCheck, LogOut, Sparkles, Lock, ArrowRight, UserCheck, 
-  Database, Image as ImageIcon, AlertCircle, RefreshCw, Key, Shield, Layers 
+  Database, Image as ImageIcon, AlertCircle, RefreshCw, Key, Share2, Film, Layers 
 } from 'lucide-react';
 
 export default function WebARApp() {
@@ -26,10 +27,35 @@ export default function WebARApp() {
   // Modal states
   const [showTargetShowcase, setShowTargetShowcase] = useState(false);
   const [showSupabaseSetup, setShowSupabaseSetup] = useState(false);
+  const [showMediaManager, setShowMediaManager] = useState(false);
+
+  // Shared URL Params state
+  const [sharedMedia, setSharedMedia] = useState(null);
 
   const supabaseActive = isSupabaseConfigured();
 
-  // Load audit logs
+  // Check URL parameters for shared WebAR links
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const mediaUrl = urlParams.get('mediaUrl');
+      const mediaType = urlParams.get('mediaType');
+      const title = urlParams.get('title');
+
+      if (mediaUrl) {
+        const sharedObj = {
+          media_url: mediaUrl,
+          media_type: mediaType || 'image',
+          title: title || 'Shared AR Media'
+        };
+        setSharedMedia(sharedObj);
+        localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify(sharedObj));
+        // Auto launch camera for shared link recipients
+        setArActive(true);
+      }
+    }
+  }, []);
+
   const fetchAuditLogs = async () => {
     setIsLoadingLogs(true);
     if (supabaseActive) {
@@ -43,7 +69,6 @@ export default function WebARApp() {
         if (!error && data) {
           setLogs(data);
         } else {
-          // Fallback to local logs if RLS prevents reading other users or table hasn't been created yet
           setLogs(getMockLoginLogs());
         }
       } catch (err) {
@@ -56,17 +81,14 @@ export default function WebARApp() {
   };
 
   useEffect(() => {
-    // 1. Initial Session Check
     if (supabaseActive) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user ?? null);
       });
 
-      // 2. Monitor user authentication handshakes automatically
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         setUser(session?.user ?? null);
         
-        // Audit Interception: Track successfully signed-in users in custom public.login_logs table
         if (event === 'SIGNED_IN' && session?.user) {
           await recordLoginAudit(session.user);
           fetchAuditLogs();
@@ -75,7 +97,6 @@ export default function WebARApp() {
 
       return () => subscription.unsubscribe();
     } else {
-      // Demo Mode Session
       const localUser = getMockSession();
       setUser(localUser);
       setLogs(getMockLoginLogs());
@@ -88,7 +109,6 @@ export default function WebARApp() {
     }
   }, [user]);
 
-  // Auth Submit Processing
   const handleAuthProcessing = async (e) => {
     e.preventDefault();
     setErrorMessage('');
@@ -113,20 +133,18 @@ export default function WebARApp() {
         }
       }
     } else {
-      // Demo Mode Auth Simulation
       setTimeout(() => {
         const newUser = setMockSession(email);
         setUser(newUser);
         setLogs(getMockLoginLogs());
         setSuccessMessage('Successfully authenticated in Demo Mode!');
         setIsLoading(false);
-      }, 600);
+      }, 500);
       return;
     }
     setIsLoading(false);
   };
 
-  // Handle Logout
   const handleSignOut = async () => {
     if (supabaseActive) {
       await supabase.auth.signOut();
@@ -137,8 +155,14 @@ export default function WebARApp() {
     setArActive(false);
   };
 
-  // GATEWAY CONTROLLER 1: Render Public Login/Sign-Up Gateway for Unauthenticated Visitors
-  if (!user) {
+  const handleSelectMediaForAR = (mediaObj) => {
+    setSharedMedia(mediaObj);
+    localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify(mediaObj));
+    setArActive(true);
+  };
+
+  // GATEWAY CONTROLLER 1: Render Public Gateway for Unauthenticated Visitors
+  if (!user && !arActive) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -149,7 +173,6 @@ export default function WebARApp() {
         padding: '24px',
         position: 'relative'
       }}>
-        {/* Top Header Branding */}
         <div style={{ textAlign: 'center', marginBottom: '32px', maxWidth: '480px' }}>
           <div style={{
             display: 'inline-flex',
@@ -163,7 +186,7 @@ export default function WebARApp() {
           }}>
             <Sparkles size={14} style={{ color: 'var(--accent-cyan)' }} />
             <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-cyan)', letterSpacing: '0.05em' }}>
-              NEXT.JS + SUPABASE + MINDAR
+              NEXT.JS + SUPABASE STORAGE + MINDAR
             </span>
           </div>
 
@@ -171,11 +194,10 @@ export default function WebARApp() {
             No-QR Cloud WebAR Scanner
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.5' }}>
-            Secure Cloud-Authenticated WebAR Platform with Automated PostgreSQL Login Audit Tracking.
+            Secure Cloud-Authenticated WebAR Platform with Supabase Photo/Video Storage & Automated Audit Tracking.
           </p>
         </div>
 
-        {/* Auth Gateway Form Panel */}
         <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '36px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '24px' }}>
             <Lock size={18} style={{ color: 'var(--accent-cyan)' }} />
@@ -292,7 +314,6 @@ export default function WebARApp() {
             </div>
           </form>
 
-          {/* Quick Setup Actions */}
           <div style={{ borderTop: '1px solid var(--border-glass)', marginTop: '24px', paddingTop: '16px', display: 'flex', justifyContent: 'center' }}>
             <button 
               onClick={() => setShowSupabaseSetup(true)}
@@ -320,14 +341,13 @@ export default function WebARApp() {
     );
   }
 
-  // GATEWAY CONTROLLER 2: Render Protected Dashboard Control Hub for Validated Users
+  // GATEWAY CONTROLLER 2: Render Protected Dashboard Hub & WebAR Camera Viewport
   return (
     <div style={{ width: '100vw', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
       
       {/* FULLSCREEN AR CAMERA VIEWPORT MODE */}
       {arActive ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#000' }}>
-          {/* Top Controls Header */}
           <div style={{
             position: 'absolute',
             top: '20px',
@@ -374,9 +394,8 @@ export default function WebARApp() {
             </button>
           </div>
 
-          {/* Standalone MindAR + A-Frame Camera WebAR Engine iframe */}
           <iframe 
-            src="/ar-lens-engine.html" 
+            src={`/ar-lens-engine.html${sharedMedia ? `?mediaUrl=${encodeURIComponent(sharedMedia.media_url)}&mediaType=${sharedMedia.media_type}&title=${encodeURIComponent(sharedMedia.title)}` : ''}`} 
             allow="camera; microphone; display-capture" 
             style={{ width: '100%', height: '100%', border: 'none' }} 
           />
@@ -386,7 +405,6 @@ export default function WebARApp() {
       {/* DASHBOARD PROFILE CONTROL HUB VIEW */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
         
-        {/* Navigation / Header Bar */}
         <header style={{
           display: 'flex',
           justify: 'space-between',
@@ -416,7 +434,7 @@ export default function WebARApp() {
                 WebAR Scanner Dashboard
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Protected JWT Session • Centralized Audit Tracking
+                Protected JWT Session • Centralized Audit & Shared Media
               </p>
             </div>
           </div>
@@ -424,7 +442,7 @@ export default function WebARApp() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <div className="glass-panel" style={{ padding: '8px 14px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <UserCheck size={16} style={{ color: 'var(--accent-emerald)' }} />
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>{user.email}</span>
+              <span style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>{user?.email || 'Authenticated User'}</span>
             </div>
 
             <button onClick={handleSignOut} className="btn-secondary" style={{ color: '#fda4af' }}>
@@ -449,16 +467,16 @@ export default function WebARApp() {
           <div style={{ maxWidth: '600px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <span className="pulse-badge">
-                <span className="pulse-dot" /> WebAR Engine Ready
+                <span className="pulse-dot" /> WebAR Media Engine Ready
               </span>
-              <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>MindAR v1.2.5 + A-Frame v1.5.0</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Supabase Storage + MindAR</span>
             </div>
             
             <h2 className="text-gradient" style={{ fontSize: '28px', fontWeight: '800', marginBottom: '10px' }}>
               No-QR Physical Print AR Recognition Lens
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-              Scan custom target prints across angles and device flash profiles without needing unique QR codes on the physical media.
+              Upload custom videos or photos to Supabase Storage and generate shareable links so anyone you share them with can scan target prints and view the AR overlay!
             </p>
           </div>
 
@@ -469,6 +487,14 @@ export default function WebARApp() {
               style={{ padding: '16px 32px', fontSize: '16px', borderRadius: '30px' }}
             >
               <Camera size={22} /> Access AR View Lens
+            </button>
+
+            <button 
+              onClick={() => setShowMediaManager(true)}
+              className="btn-primary"
+              style={{ justifyContent: 'center' }}
+            >
+              <Share2 size={16} /> Upload & Share Videos / Photos
             </button>
 
             <button 
@@ -511,14 +537,14 @@ export default function WebARApp() {
 
           <div className="glass-panel" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>Target Recognition</span>
-              <Layers size={18} style={{ color: 'var(--accent-purple)' }} />
+              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>Storage Bucket</span>
+              <Share2 size={18} style={{ color: 'var(--accent-purple)' }} />
             </div>
             <div style={{ fontSize: '20px', fontWeight: '700', color: '#fff' }}>
-              MindAR Feature Map
+              ar-media (Public Storage)
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '4px' }}>
-              targets.mind (.mind binary format)
+              Photo & video texture streaming enabled
             </div>
           </div>
         </div>
@@ -528,6 +554,14 @@ export default function WebARApp() {
           logs={logs} 
           onRefresh={fetchAuditLogs} 
           isLoading={isLoadingLogs} 
+        />
+
+        {/* Supabase Media Upload & Sharing Modal */}
+        <MediaManagerModal
+          isOpen={showMediaManager}
+          onClose={() => setShowMediaManager(false)}
+          user={user}
+          onSelectMediaForAR={handleSelectMediaForAR}
         />
 
         {/* Database Migration & Credentials Setup Modal */}

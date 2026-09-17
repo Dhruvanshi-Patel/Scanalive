@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Database, Copy, Check, Terminal, ExternalLink, Key, ShieldCheck } from 'lucide-react';
+import { X, Database, Copy, Check, Terminal, ExternalLink, Key, ShieldCheck, FolderPlus } from 'lucide-react';
 
 export default function SupabaseSetupModal({ isOpen, onClose, onSaveCredentials }) {
   const [copied, setCopied] = useState(false);
@@ -10,7 +10,7 @@ export default function SupabaseSetupModal({ isOpen, onClose, onSaveCredentials 
   if (!isOpen) return null;
 
   const sqlScript = `-- 1. Create the tracking table
-create table public.login_logs (
+create table if not exists public.login_logs (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade not null,
   email text not null,
@@ -18,18 +18,30 @@ create table public.login_logs (
   user_agent text
 );
 
--- 2. Enable Row Level Security (RLS) for data protection
+-- 2. Create the shared media assets table for WebAR photos & videos
+create table if not exists public.media_assets (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  target_index integer default 0 not null,
+  title text not null,
+  media_url text not null,
+  media_type text not null, -- 'video' or 'image'
+  created_at timestamptz default now() not null
+);
+
+-- 3. Enable Row Level Security (RLS)
 alter table public.login_logs enable row level security;
+alter table public.media_assets enable row level security;
 
--- 3. Create security policy: Users can only see their own login audit files
-create policy "Users can view their own login logs."
-  on public.login_logs for select
-  using ( auth.uid() = user_id );
+-- 4. Security policies
+create policy "Users view login logs" on public.login_logs for select using ( auth.uid() = user_id );
+create policy "Insert login logs" on public.login_logs for insert with check ( true );
 
--- 4. Create security policy: Allow authenticated application handshakes to write logs
-create policy "Enable insert access for authenticated application sign-ins"
-  on public.login_logs for insert
-  with check ( true );`;
+create policy "Public read media assets" on public.media_assets for select using ( true );
+create policy "Authenticated insert media assets" on public.media_assets for insert with check ( true );
+
+-- 5. Storage Bucket Note:
+-- In your Supabase Dashboard -> Storage -> Create a new PUBLIC bucket named: ar-media`;
 
   const handleCopySql = () => {
     navigator.clipboard.writeText(sqlScript);
@@ -109,10 +121,10 @@ create policy "Enable insert access for authenticated application sign-ins"
           </div>
           <div>
             <h3 style={{ fontSize: '20px', fontWeight: '700', color: '#fff' }}>
-              Supabase Database & API Setup
+              Supabase Database & Storage Setup
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              Step 1 SQL Schema Migration Script & Connection Settings
+              Schema script for login audit tracking and shared AR media storage
             </p>
           </div>
         </div>
@@ -121,7 +133,7 @@ create policy "Enable insert access for authenticated application sign-ins"
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: '600', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Terminal size={14} style={{ color: 'var(--accent-cyan)' }} /> 1. Execute SQL Migration in Supabase Editor:
+              <Terminal size={14} style={{ color: 'var(--accent-cyan)' }} /> 1. Execute SQL Script in Supabase Editor:
             </span>
             <button 
               onClick={handleCopySql} 
@@ -150,7 +162,7 @@ create policy "Enable insert access for authenticated application sign-ins"
         {/* Credentials Form */}
         <form onSubmit={handleSave} style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '20px' }}>
           <h4 style={{ fontSize: '15px', fontWeight: '600', color: '#fff', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Key size={16} style={{ color: 'var(--accent-cyan)' }} /> 2. Connect Your Live Supabase Credentials (Optional):
+            <Key size={16} style={{ color: 'var(--accent-cyan)' }} /> 2. Connect Your Live Supabase Credentials:
           </h4>
           
           <div style={{ marginBottom: '14px' }}>

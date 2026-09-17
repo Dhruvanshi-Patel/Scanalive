@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Mobile WebAR Camera Lens</title>
+  <title>Mobile WebAR Camera Lens - Shared Media Scanner</title>
   
   <!-- A-Frame v1.5.0 -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -28,14 +28,12 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* MindAR canvas mobile fit */
     .a-canvas {
       width: 100% !important;
       height: 100% !important;
       object-fit: cover !important;
     }
 
-    /* Modern Mobile Phone Cyberpunk AR HUD */
     #ar-hud-overlay {
       position: absolute;
       inset: 0;
@@ -85,7 +83,6 @@
       box-shadow: 0 0 12px #10b981;
     }
 
-    /* Mobile Camera Switcher Button */
     .camera-switch-btn {
       pointer-events: auto;
       background: rgba(15, 23, 42, 0.85);
@@ -101,7 +98,6 @@
       cursor: pointer;
     }
 
-    /* Reticle Frame centered for mobile phone camera view */
     .scanner-reticle {
       position: absolute;
       top: 50%;
@@ -151,7 +147,6 @@
       100% { top: 90%; opacity: 0.2; }
     }
 
-    /* Target notification toast */
     #target-toast {
       position: absolute;
       bottom: max(30px, var(--sab));
@@ -201,7 +196,7 @@
     </div>
 
     <div id="target-toast">
-      <span>✨ TARGET MATCH — 3D WebAR Content Active</span>
+      <span id="toast-text">✨ TARGET MATCH — Shared WebAR Media Active</span>
     </div>
   </div>
 
@@ -213,17 +208,20 @@
     vr-mode-ui="enabled: false" 
     device-orientation-permission-ui="enabled: false"
   >
-    <a-assets>
+    <a-assets id="scene-assets">
       <img id="card-texture" src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop" />
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Target Index 0 (First Physical Print Target) -->
+    <!-- Target Index 0 (Physical Print Target) -->
     <a-entity id="target-entity-0" mindar-image-target="targetIndex: 0">
       
-      <!-- Holographic Card Platform -->
-      <a-plane position="0 0 0" height="1" width="0.75" rotation="0 0 0" material="src: #card-texture; opacity: 0.9; transparent: true; roughness: 0.2"></a-plane>
+      <!-- Container Entity for Dynamic Media (Video / Photo Plane) -->
+      <a-entity id="media-container" position="0 0 0">
+        <!-- Default Photo / Card Plane -->
+        <a-plane id="photo-plane" position="0 0 0" height="1" width="0.75" rotation="0 0 0" material="src: #card-texture; opacity: 0.95; transparent: true"></a-plane>
+      </a-entity>
 
       <!-- 3D Holographic Orbit Ring -->
       <a-torus position="0 0 0.1" radius="0.45" radius-tubular="0.015" material="color: #00f2fe; metalness: 0.8; opacity: 0.8; transparent: true"
@@ -231,12 +229,12 @@
       </a-torus>
 
       <!-- Inner Spinning Octahedron Crystal -->
-      <a-octahedron position="0 0 0.2" radius="0.2" material="color: #38bdf8; wireframe: true; wireframeLinewidth: 2"
+      <a-octahedron position="0 0 0.2" radius="0.18" material="color: #38bdf8; wireframe: true; wireframeLinewidth: 2"
                     animation="property: rotation; to: 360 360 0; loop: true; dur: 4000; easing: linear">
       </a-octahedron>
 
       <!-- Floating Hologram Text Banner -->
-      <a-text value="CLOUD AUTH WEBAR VERIFIED" position="0 -0.65 0.1" align="center" width="2.2" color="#00f2fe"
+      <a-text id="ar-title-text" value="CLOUD AUTH WEBAR VERIFIED" position="0 -0.65 0.1" align="center" width="2.2" color="#00f2fe"
               font="kelsonsans"
               animation="property: position; to: 0 -0.6 0.15; dir: alternate; loop: true; dur: 1500; easing: easeInOutSine">
       </a-text>
@@ -256,6 +254,64 @@
       const laser = document.getElementById('laser');
       const toast = document.getElementById('target-toast');
       const cameraFlipBtn = document.getElementById('camera-flip-btn');
+      const mediaContainer = document.getElementById('media-container');
+      const arTitleText = document.getElementById('ar-title-text');
+
+      // Parse Query Parameters for Shared Media URL
+      const urlParams = new URLSearchParams(window.location.search);
+      let sharedMediaUrl = urlParams.get('mediaUrl');
+      let sharedMediaType = urlParams.get('mediaType');
+      let sharedTitle = urlParams.get('title');
+
+      // Check LocalStorage override if query param not present
+      if (!sharedMediaUrl) {
+        try {
+          const stored = localStorage.getItem('ACTIVE_AR_MEDIA');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            sharedMediaUrl = parsed.media_url;
+            sharedMediaType = parsed.media_type;
+            sharedTitle = parsed.title;
+          }
+        } catch (e) {}
+      }
+
+      let activeVideoEl = null;
+
+      // Inject Shared Video or Image Media into A-Frame Scene
+      if (sharedMediaUrl) {
+        if (sharedTitle && arTitleText) {
+          arTitleText.setAttribute('value', sharedTitle.toUpperCase());
+        }
+
+        if (sharedMediaType === 'video' || sharedMediaUrl.includes('.mp4') || sharedMediaUrl.includes('.webm')) {
+          // Video Media Asset
+          console.log("WebAR Lens: Loading shared video texture:", sharedMediaUrl);
+          
+          const assetsEl = document.getElementById('scene-assets');
+          const videoEl = document.createElement('video');
+          videoEl.setAttribute('id', 'shared-video-asset');
+          videoEl.setAttribute('src', sharedMediaUrl);
+          videoEl.setAttribute('crossorigin', 'anonymous');
+          videoEl.setAttribute('loop', 'true');
+          videoEl.setAttribute('playsinline', 'true');
+          videoEl.setAttribute('webkit-playsinline', 'true');
+          videoEl.setAttribute('muted', 'true'); // Muted ensures mobile phone browser autoplay compliance
+          assetsEl.appendChild(videoEl);
+          activeVideoEl = videoEl;
+
+          // Replace container with <a-video>
+          mediaContainer.innerHTML = `
+            <a-video src="#shared-video-asset" position="0 0 0.05" width="1" height="0.7" rotation="0 0 0"></a-video>
+          `;
+        } else {
+          // Photo Media Asset
+          console.log("WebAR Lens: Loading shared photo texture:", sharedMediaUrl);
+          mediaContainer.innerHTML = `
+            <a-plane position="0 0 0.05" height="1" width="0.75" rotation="0 0 0" material="src: url(${sharedMediaUrl}); opacity: 0.98; transparent: true"></a-plane>
+          `;
+        }
+      }
 
       if (targetEntity) {
         targetEntity.addEventListener("targetFound", () => {
@@ -265,6 +321,11 @@
           reticle.classList.add('found');
           if (laser) laser.style.display = 'none';
           toast.style.display = 'flex';
+
+          // Autoplay video when target is detected
+          if (activeVideoEl) {
+            activeVideoEl.play().catch(e => console.log("Video play note:", e));
+          }
         });
 
         targetEntity.addEventListener("targetLost", () => {
@@ -274,10 +335,14 @@
           reticle.classList.remove('found');
           if (laser) laser.style.display = 'block';
           toast.style.display = 'none';
+
+          // Pause video when target is lost
+          if (activeVideoEl) {
+            activeVideoEl.pause();
+          }
         });
       }
 
-      // Handle Camera Switch toggle for mobile phone back/front cameras
       if (cameraFlipBtn) {
         cameraFlipBtn.addEventListener("click", () => {
           const arSystem = sceneEl.systems["mindar-image-system"];
