@@ -5,7 +5,7 @@ import { getGlobalARPairings, registerGlobalARPairing, removeGlobalARPairing } f
 import { 
   Camera, Sparkles, Upload, Video, Image as ImageIcon, Copy, Check, 
   Share2, ArrowRight, Play, RefreshCw, Layers, ShieldCheck, Sun, Zap,
-  BookOpen, Heart, Palette, Gift, CheckCircle, ChevronRight, Smartphone, Eye, Trash2 
+  BookOpen, Heart, Palette, Gift, CheckCircle, ChevronRight, Smartphone, Eye, Trash2, Users 
 } from 'lucide-react';
 
 export default function LiveMemoriesApp() {
@@ -21,6 +21,7 @@ export default function LiveMemoriesApp() {
   const [globalCatalog, setGlobalCatalog] = useState([]);
   const [showTargetShowcase, setShowTargetShowcase] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [previewingVideo, setPreviewingVideo] = useState(null);
 
   const loadCatalog = async () => {
     const pairings = await getGlobalARPairings();
@@ -92,7 +93,7 @@ export default function LiveMemoriesApp() {
   };
 
   const handleDeletePair = async (pairId) => {
-    if (window.confirm("Are you sure you want to delete this Photo & Video pair from the LiveMemories catalog?")) {
+    if (window.confirm("Are you sure you want to delete this Photo & Video pair from the catalog?")) {
       const updated = await removeGlobalARPairing(pairId);
       setGlobalCatalog(updated);
     }
@@ -287,6 +288,7 @@ export default function LiveMemoriesApp() {
               Upload your <strong>Target Photo</strong> and attach the <strong>Video</strong> that plays when scanned.
             </p>
 
+            {/* Photo Input */}
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <label style={{ fontSize: '12px', color: 'var(--accent-cyan)', fontWeight: '700' }}>
@@ -327,6 +329,7 @@ export default function LiveMemoriesApp() {
               </div>
             </div>
 
+            {/* Video Input */}
             <div style={{ marginBottom: '24px' }}>
               <label style={{ fontSize: '12px', color: 'var(--accent-emerald)', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
                 🎬 OVERLAY VIDEO (Video to play when scanned)
@@ -370,68 +373,111 @@ export default function LiveMemoriesApp() {
           </div>
         </div>
 
-        {/* REGISTERED CATALOG WITH DELETE BUTTON */}
-        <div className="glass-panel" style={{ padding: '28px', marginBottom: '48px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Layers size={20} style={{ color: 'var(--accent-emerald)' }} />
-              <h3 className="font-serif" style={{ fontSize: '18px', fontWeight: '800', color: '#fff' }}>
-                Active LiveMemories Pairs ({globalCatalog.length})
-              </h3>
+        {/* COMMUNITY & CREATED PHOTO-VIDEO GALLERY */}
+        <div className="glass-panel" style={{ padding: '32px', marginBottom: '48px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                <Users size={22} style={{ color: 'var(--accent-emerald)' }} />
+                <h3 className="font-serif" style={{ fontSize: '22px', fontWeight: '800', color: '#fff' }}>
+                  Community & Created Photo-Video Frames ({globalCatalog.length})
+                </h3>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                Anyone visiting the site can scan these target photos to reveal their augmented video overlays!
+              </p>
             </div>
-            <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
-              Anyone visiting the site and scanning these photos will reveal their paired videos.
-            </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
             {globalCatalog.map((item, idx) => (
-              <div key={item.id || idx} style={{
-                background: 'rgba(15, 23, 42, 0.7)',
-                border: '1px solid var(--border-glass)',
-                borderRadius: '14px',
-                padding: '16px',
+              <div key={item.id || idx} className="glass-panel" style={{
+                padding: '20px',
+                background: 'rgba(15, 23, 42, 0.75)',
                 display: 'flex',
                 flexDirection: 'column',
-                justify: 'space-between',
-                gap: '12px'
+                justify: 'space-between'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                  <div>
-                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff' }}>
-                      {item.title || item.target_name}
+                <div>
+                  {/* Photo Target & Video Thumbnails side by side */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                    
+                    {/* Target Photo */}
+                    <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', aspectRatio: '4/3', background: '#000', border: '1px solid rgba(0, 242, 254, 0.3)' }}>
+                      <img 
+                        src={item.photo_url || '/targets/sample-target-1.png'} 
+                        alt="Target Photo" 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <span style={{ position: 'absolute', bottom: '6px', left: '6px', fontSize: '10px', fontWeight: '700', background: 'rgba(0,0,0,0.75)', color: 'var(--accent-cyan)', padding: '2px 6px', borderRadius: '4px' }}>
+                        TARGET PHOTO
+                      </span>
                     </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Target: {item.target_name || 'Registered Photo Print'}
+
+                    {/* Overlay Video */}
+                    <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', aspectRatio: '4/3', background: '#000', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                      <video 
+                        src={item.video_url || item.media_url} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <button 
+                        onClick={() => setPreviewingVideo(item)}
+                        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        title="Preview Video"
+                      >
+                        <Play size={24} style={{ fill: '#fff' }} />
+                      </button>
+                      <span style={{ position: 'absolute', bottom: '6px', left: '6px', fontSize: '10px', fontWeight: '700', background: 'rgba(0,0,0,0.75)', color: 'var(--accent-emerald)', padding: '2px 6px', borderRadius: '4px' }}>
+                        VIDEO OVERLAY
+                      </span>
                     </div>
                   </div>
 
-                  <button 
-                    onClick={() => handleDeletePair(item.id)}
-                    style={{
-                      background: 'rgba(244, 63, 94, 0.15)',
-                      border: '1px solid rgba(244, 63, 94, 0.3)',
-                      color: '#fda4af',
-                      borderRadius: '8px',
-                      padding: '6px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                    title="Delete Photo & Video Pair"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                    <div>
+                      <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>
+                        {item.title || item.target_name}
+                      </h4>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Created by: <span style={{ color: 'var(--accent-mint)' }}>{item.creator || 'Community User'}</span>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => handleDeletePair(item.id)}
+                      style={{
+                        background: 'rgba(244, 63, 94, 0.15)',
+                        border: '1px solid rgba(244, 63, 94, 0.3)',
+                        color: '#fda4af',
+                        borderRadius: '8px',
+                        padding: '6px',
+                        cursor: 'pointer'
+                      }}
+                      title="Delete Frame Pair"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
 
-                <button 
-                  onClick={() => openCameraScanner(item)}
-                  className="btn-primary"
-                  style={{ padding: '8px 14px', fontSize: '13px', minHeight: '38px', width: '100%' }}
-                >
-                  <Camera size={14} /> Scan This Photo
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={() => openCameraScanner(item)}
+                    className="btn-primary"
+                    style={{ padding: '10px 16px', fontSize: '13px', flex: 1 }}
+                  >
+                    <Camera size={15} /> Scan This Photo
+                  </button>
+
+                  <button 
+                    onClick={() => setPreviewingVideo(item)}
+                    className="btn-secondary"
+                    style={{ padding: '10px 14px', fontSize: '13px' }}
+                    title="Watch Video Preview"
+                  >
+                    <Eye size={15} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -465,7 +511,7 @@ export default function LiveMemoriesApp() {
               </p>
             </div>
 
-            <div style={{ padding: '24px' }} className="glass-panel">
+            <div className="glass-panel" style={{ padding: '24px' }}>
               <div style={{ fontSize: '36px', fontWeight: '900', color: 'var(--accent-mint)', marginBottom: '12px' }}>03</div>
               <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>Scan & Watch It Come Alive</h3>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
@@ -509,6 +555,32 @@ export default function LiveMemoriesApp() {
             </div>
           </div>
         </div>
+
+        {/* Video Preview Modal */}
+        {previewingVideo && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            backgroundColor: 'rgba(7, 10, 18, 0.85)',
+            backdropFilter: 'blur(14px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}>
+            <div className="glass-panel" style={{ maxWidth: '640px', width: '100%', padding: '24px', position: 'relative' }}>
+              <button onClick={() => setPreviewingVideo(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer' }}>✕</button>
+              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '12px' }}>{previewingVideo.title}</h3>
+              <video src={previewingVideo.video_url || previewingVideo.media_url} controls autoPlay style={{ width: '100%', borderRadius: '12px', maxHeight: '360px' }} />
+              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button onClick={() => openCameraScanner(previewingVideo)} className="btn-primary">
+                  <Camera size={16} /> Scan Target Photo
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <TargetShowcaseModal 
           isOpen={showTargetShowcase} 
