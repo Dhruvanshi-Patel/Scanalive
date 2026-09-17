@@ -1,353 +1,116 @@
 import { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, recordLoginAudit } from '../lib/supabaseClient';
-import { getMockSession, setMockSession, clearMockSession, getMockLoginLogs } from '../lib/mockAuth';
-import LoginLogsTable from '../components/LoginLogsTable';
 import TargetShowcaseModal from '../components/TargetShowcaseModal';
-import SupabaseSetupModal from '../components/SupabaseSetupModal';
-import MediaManagerModal from '../components/MediaManagerModal';
 import { 
-  Camera, ShieldCheck, LogOut, Sparkles, Lock, ArrowRight, UserCheck, 
-  Database, Image as ImageIcon, AlertCircle, RefreshCw, Key, Share2, Film, Layers 
+  Camera, Sparkles, Upload, Video, Image as ImageIcon, Copy, Check, 
+  Share2, ArrowRight, Play, RefreshCw, Layers, Sparkle, Film
 } from 'lucide-react';
 
 export default function WebARApp() {
-  const [user, setUser] = useState(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [arActive, setArActive] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   
-  // Audit Logs state
-  const [logs, setLogs] = useState([]);
-  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  // Photo & Video Pairing State
+  const [targetImage, setTargetImage] = useState(null);
+  const [targetImagePreview, setTargetImagePreview] = useState('');
+  const [videoFile, setVideoFile] = useState(null);
+  const [videoPreview, setVideoPreview] = useState('');
+  const [customVideoUrl, setCustomVideoUrl] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
 
-  // Modal states
+  // Active Shared AR State
+  const [activeArMedia, setActiveArMedia] = useState(null);
+  const [shareLink, setShareLink] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Modals
   const [showTargetShowcase, setShowTargetShowcase] = useState(false);
-  const [showSupabaseSetup, setShowSupabaseSetup] = useState(false);
-  const [showMediaManager, setShowMediaManager] = useState(false);
 
-  // Shared URL Params state
-  const [sharedMedia, setSharedMedia] = useState(null);
-
-  const supabaseActive = isSupabaseConfigured();
-
-  // Check URL parameters for shared WebAR links
+  // Check URL parameters for shared links (recipients opening shared WebAR links)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const mediaUrl = urlParams.get('mediaUrl');
-      const mediaType = urlParams.get('mediaType');
+      const videoUrl = urlParams.get('videoUrl') || urlParams.get('mediaUrl');
+      const photoUrl = urlParams.get('photoUrl');
       const title = urlParams.get('title');
 
-      if (mediaUrl) {
+      if (videoUrl) {
         const sharedObj = {
-          media_url: mediaUrl,
-          media_type: mediaType || 'image',
-          title: title || 'Shared AR Media'
+          media_url: videoUrl,
+          media_type: 'video',
+          photo_url: photoUrl || '',
+          title: title || 'Shared AR Video Overlay'
         };
-        setSharedMedia(sharedObj);
+        setActiveArMedia(sharedObj);
         localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify(sharedObj));
-        // Auto launch camera for shared link recipients
+        // Auto-launch WebAR scanner for shared link recipients
         setArActive(true);
       }
     }
   }, []);
 
-  const fetchAuditLogs = async () => {
-    setIsLoadingLogs(true);
-    if (supabaseActive) {
-      try {
-        const { data, error } = await supabase
-          .from('login_logs')
-          .select('*')
-          .order('logged_at', { ascending: false })
-          .limit(50);
-        
-        if (!error && data) {
-          setLogs(data);
-        } else {
-          setLogs(getMockLoginLogs());
-        }
-      } catch (err) {
-        setLogs(getMockLoginLogs());
+  // Handle Target Photo Selection
+  const handleTargetPhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setTargetImage(file);
+      setTargetImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  // Handle Video / Overlay Selection
+  const handleVideoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setVideoFile(file);
+      setVideoPreview(URL.createObjectURL(file));
+      if (!customTitle) {
+        setCustomTitle(file.name.replace(/\.[^/.]+$/, ""));
       }
-    } else {
-      setLogs(getMockLoginLogs());
     }
-    setIsLoadingLogs(false);
   };
 
-  useEffect(() => {
-    if (supabaseActive) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-      });
+  // Launch WebAR Scanner with paired target & video
+  const handleLaunchAR = (mediaObj = null) => {
+    let mediaToUse = mediaObj;
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        setUser(session?.user ?? null);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          await recordLoginAudit(session.user);
-          fetchAuditLogs();
-        }
-      });
-
-      return () => subscription.unsubscribe();
-    } else {
-      const localUser = getMockSession();
-      setUser(localUser);
-      setLogs(getMockLoginLogs());
+    if (!mediaToUse) {
+      const finalVideoUrl = videoPreview || customVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+      mediaToUse = {
+        media_url: finalVideoUrl,
+        media_type: 'video',
+        photo_url: targetImagePreview || '',
+        title: customTitle || 'Custom AR Video Overlay'
+      };
     }
-  }, [supabaseActive]);
 
-  useEffect(() => {
-    if (user) {
-      fetchAuditLogs();
+    setActiveArMedia(mediaToUse);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify(mediaToUse));
+      const baseUrl = window.location.origin;
+      const generatedLink = `${baseUrl}/?videoUrl=${encodeURIComponent(mediaToUse.media_url)}&title=${encodeURIComponent(mediaToUse.title)}`;
+      setShareLink(generatedLink);
     }
-  }, [user]);
-
-  const handleAuthProcessing = async (e) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-    setIsLoading(true);
-
-    if (supabaseActive) {
-      if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) {
-          setErrorMessage(error.message);
-        } else {
-          setSuccessMessage('Registration successful! Check email or log in directly.');
-          setIsSignUp(false);
-        }
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          setErrorMessage(error.message);
-        } else {
-          setSuccessMessage('Welcome back! Initializing secure dashboard...');
-        }
-      }
-    } else {
-      setTimeout(() => {
-        const newUser = setMockSession(email);
-        setUser(newUser);
-        setLogs(getMockLoginLogs());
-        setSuccessMessage('Successfully authenticated in Demo Mode!');
-        setIsLoading(false);
-      }, 500);
-      return;
-    }
-    setIsLoading(false);
-  };
-
-  const handleSignOut = async () => {
-    if (supabaseActive) {
-      await supabase.auth.signOut();
-    } else {
-      clearMockSession();
-    }
-    setUser(null);
-    setArActive(false);
-  };
-
-  const handleSelectMediaForAR = (mediaObj) => {
-    setSharedMedia(mediaObj);
-    localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify(mediaObj));
     setArActive(true);
   };
 
-  // GATEWAY CONTROLLER 1: Render Public Gateway for Unauthenticated Visitors
-  if (!user && !arActive) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px',
-        position: 'relative'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px', maxWidth: '480px' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            background: 'rgba(0, 242, 254, 0.1)',
-            border: '1px solid rgba(0, 242, 254, 0.3)',
-            marginBottom: '16px'
-          }}>
-            <Sparkles size={14} style={{ color: 'var(--accent-cyan)' }} />
-            <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-cyan)', letterSpacing: '0.05em' }}>
-              NEXT.JS + SUPABASE STORAGE + MINDAR
-            </span>
-          </div>
+  const handleCopyLink = () => {
+    if (!shareLink && typeof window !== 'undefined') {
+      const baseUrl = window.location.origin;
+      const linkToCopy = `${baseUrl}/?videoUrl=${encodeURIComponent(activeArMedia?.media_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4')}&title=${encodeURIComponent(customTitle || 'AR Video')}`;
+      navigator.clipboard.writeText(linkToCopy);
+    } else {
+      navigator.clipboard.writeText(shareLink);
+    }
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
 
-          <h1 className="text-gradient" style={{ fontSize: '32px', fontWeight: '800', lineHeight: '1.2', marginBottom: '8px' }}>
-            No-QR Cloud WebAR Scanner
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.5' }}>
-            Secure Cloud-Authenticated WebAR Platform with Supabase Photo/Video Storage & Automated Audit Tracking.
-          </p>
-        </div>
-
-        <div className="glass-panel" style={{ width: '100%', maxWidth: '420px', padding: '36px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '24px' }}>
-            <Lock size={18} style={{ color: 'var(--accent-cyan)' }} />
-            <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#fff' }}>
-              {isSignUp ? 'Create Cloud Account' : 'Sign In Portal Gateway'}
-            </h2>
-          </div>
-
-          {!supabaseActive && (
-            <div style={{
-              background: 'rgba(245, 158, 11, 0.12)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              borderRadius: '10px',
-              padding: '10px 14px',
-              marginBottom: '20px',
-              fontSize: '12px',
-              color: '#fcd34d',
-              display: 'flex',
-              gap: '8px',
-              alignItems: 'center'
-            }}>
-              <AlertCircle size={16} style={{ flexShrink: 0 }} />
-              <span>Running in <strong>Demo Mode</strong>. You can sign in with any email to test!</span>
-            </div>
-          )}
-
-          {errorMessage && (
-            <div style={{
-              background: 'rgba(244, 63, 94, 0.12)',
-              border: '1px solid rgba(244, 63, 94, 0.3)',
-              borderRadius: '10px',
-              padding: '10px 14px',
-              marginBottom: '16px',
-              fontSize: '13px',
-              color: '#fda4af'
-            }}>
-              {errorMessage}
-            </div>
-          )}
-
-          {successMessage && (
-            <div style={{
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: '10px',
-              padding: '10px 14px',
-              marginBottom: '16px',
-              fontSize: '13px',
-              color: '#6ee7b7'
-            }}>
-              {successMessage}
-            </div>
-          )}
-
-          <form onSubmit={handleAuthProcessing}>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: '500' }}>
-                Account Email Address
-              </label>
-              <input
-                type="email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="input-field"
-              />
-            </div>
-
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px', fontWeight: '500' }}>
-                Account Security Password
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="input-field"
-              />
-            </div>
-
-            <button 
-              type="submit" 
-              className="btn-primary" 
-              style={{ width: '100%', padding: '14px' }}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Verifying Handshake...' : (isSignUp ? 'Register Account' : 'Enter Dashboard Portal')}
-              <ArrowRight size={16} />
-            </button>
-
-            <div style={{ textAlign: 'center', marginTop: '20px' }}>
-              <button 
-                type="button"
-                onClick={() => {
-                  setIsSignUp(!isSignUp);
-                  setErrorMessage('');
-                  setSuccessMessage('');
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent-cyan)',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  textDecoration: 'underline'
-                }}
-              >
-                {isSignUp ? 'Already registered? Switch to Sign In' : "Don't have an account? Create one now"}
-              </button>
-            </div>
-          </form>
-
-          <div style={{ borderTop: '1px solid var(--border-glass)', marginTop: '24px', paddingTop: '16px', display: 'flex', justifyContent: 'center' }}>
-            <button 
-              onClick={() => setShowSupabaseSetup(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <Database size={13} style={{ color: 'var(--accent-blue)' }} /> Configure Supabase Connection & SQL Table
-            </button>
-          </div>
-        </div>
-
-        <SupabaseSetupModal 
-          isOpen={showSupabaseSetup} 
-          onClose={() => setShowSupabaseSetup(false)} 
-        />
-      </div>
-    );
-  }
-
-  // GATEWAY CONTROLLER 2: Render Protected Dashboard Hub & WebAR Camera Viewport
   return (
     <div style={{ width: '100vw', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
       
-      {/* FULLSCREEN AR CAMERA VIEWPORT MODE */}
+      {/* FULLSCREEN AR CAMERA VIEWPORT */}
       {arActive ? (
         <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#000' }}>
+          {/* Header Controls */}
           <div style={{
             position: 'absolute',
             top: '20px',
@@ -373,7 +136,7 @@ export default function WebARApp() {
                 boxShadow: '0 0 25px rgba(244, 63, 94, 0.4)'
               }}
             >
-              ✕ Exit AR Lens Scanner
+              ✕ Exit AR Scanner
             </button>
 
             <button 
@@ -390,36 +153,36 @@ export default function WebARApp() {
                 fontWeight: '600'
               }}
             >
-              <ImageIcon size={16} /> View Target Print Cards
+              <ImageIcon size={16} /> Sample Printable Target Cards
             </button>
           </div>
 
+          {/* Standalone WebAR MindAR Camera Engine */}
           <iframe 
-            src={`/ar-lens-engine.html${sharedMedia ? `?mediaUrl=${encodeURIComponent(sharedMedia.media_url)}&mediaType=${sharedMedia.media_type}&title=${encodeURIComponent(sharedMedia.title)}` : ''}`} 
+            src={`/ar-lens-engine.html${activeArMedia ? `?mediaUrl=${encodeURIComponent(activeArMedia.media_url)}&mediaType=video&title=${encodeURIComponent(activeArMedia.title)}` : ''}`} 
             allow="camera; microphone; display-capture" 
             style={{ width: '100%', height: '100%', border: 'none' }} 
           />
         </div>
       ) : null}
 
-      {/* DASHBOARD PROFILE CONTROL HUB VIEW */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
+      {/* CLEAN MAIN WEBSITE VIEW */}
+      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '32px 20px' }}>
         
+        {/* Simple Brand Navbar */}
         <header style={{
           display: 'flex',
           justify: 'space-between',
           alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px',
           paddingBottom: '24px',
           borderBottom: '1px solid var(--border-glass)',
-          marginBottom: '32px'
+          marginBottom: '36px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
               width: '44px',
               height: '44px',
-              borderRadius: '12px',
+              borderRadius: '14px',
               background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
               display: 'flex',
               alignItems: 'center',
@@ -430,147 +193,208 @@ export default function WebARApp() {
               <Camera size={24} />
             </div>
             <div>
-              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#fff' }}>
-                WebAR Scanner Dashboard
-              </h2>
+              <h1 className="text-gradient" style={{ fontSize: '22px', fontWeight: '800', lineHeight: '1.2' }}>
+                WebAR Scanner Studio
+              </h1>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Protected JWT Session • Centralized Audit & Shared Media
+                No QR Codes Needed — Scan Physical Photos & Play Augmented Videos
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div className="glass-panel" style={{ padding: '8px 14px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <UserCheck size={16} style={{ color: 'var(--accent-emerald)' }} />
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>{user?.email || 'Authenticated User'}</span>
-            </div>
-
-            <button onClick={handleSignOut} className="btn-secondary" style={{ color: '#fda4af' }}>
-              <LogOut size={16} /> Sign Out
-            </button>
-          </div>
+          <button 
+            onClick={() => handleLaunchAR()} 
+            className="btn-primary btn-emerald"
+            style={{ padding: '10px 20px', fontSize: '14px', borderRadius: '30px' }}
+          >
+            <Camera size={18} /> Open AR Scanner Camera
+          </button>
         </header>
 
-        {/* Primary CTA Hero Section */}
-        <div className="glass-panel glass-panel-interactive" style={{
-          padding: '36px',
-          marginBottom: '32px',
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 100%)',
-          border: '1px solid rgba(0, 242, 254, 0.25)',
-          boxShadow: '0 0 40px rgba(0, 242, 254, 0.1)',
-          display: 'flex',
-          justify: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '24px'
-        }}>
-          <div style={{ maxWidth: '600px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-              <span className="pulse-badge">
-                <span className="pulse-dot" /> WebAR Media Engine Ready
-              </span>
-              <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Supabase Storage + MindAR</span>
+        {/* TWO MAIN STUDIO OPTIONS */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '36px' }}>
+          
+          {/* OPTION 1: SCAN PHYSICAL PHOTO */}
+          <div className="glass-panel glass-panel-interactive" style={{
+            padding: '32px',
+            display: 'flex',
+            flexDirection: 'column',
+            justify: 'space-between',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            boxShadow: '0 0 30px rgba(16, 185, 129, 0.1)'
+          }}>
+            <div>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '14px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--accent-emerald)',
+                marginBottom: '18px'
+              }}>
+                <Camera size={24} />
+              </div>
+
+              <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>
+                1. Scan Photo Print
+              </h2>
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
+                Point your phone camera at any physical photo or printed target card to trigger the AR video overlay automatically without QR codes.
+              </p>
             </div>
-            
-            <h2 className="text-gradient" style={{ fontSize: '28px', fontWeight: '800', marginBottom: '10px' }}>
-              No-QR Physical Print AR Recognition Lens
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button 
+                onClick={() => handleLaunchAR()}
+                className="btn-primary btn-emerald"
+                style={{ width: '100%', padding: '16px', fontSize: '16px', borderRadius: '14px' }}
+              >
+                <Camera size={20} /> Open Camera Scanner
+              </button>
+
+              <button 
+                onClick={() => setShowTargetShowcase(true)}
+                className="btn-secondary"
+                style={{ width: '100%', justifyContent: 'center' }}
+              >
+                <ImageIcon size={16} /> View Printable Sample Target Cards
+              </button>
+            </div>
+          </div>
+
+          {/* OPTION 2: UPLOAD PHOTO & VIDEO TO PAIR */}
+          <div className="glass-panel glass-panel-interactive" style={{
+            padding: '32px',
+            border: '1px solid rgba(0, 242, 254, 0.3)',
+            boxShadow: '0 0 30px rgba(0, 242, 254, 0.1)'
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '14px',
+              background: 'rgba(0, 242, 254, 0.15)',
+              border: '1px solid rgba(0, 242, 254, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--accent-cyan)',
+              marginBottom: '18px'
+            }}>
+              <Upload size={24} />
+            </div>
+
+            <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '10px' }}>
+              2. Upload Photo & Video Pair
             </h2>
-            <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-              Upload custom videos or photos to Supabase Storage and generate shareable links so anyone you share them with can scan target prints and view the AR overlay!
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '20px' }}>
+              Select a <strong>Target Photo</strong> and pair it with a <strong>Video</strong> that will play when the photo gets scanned.
+            </p>
+
+            {/* Target Photo Uploader */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '12px', color: 'var(--accent-cyan)', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                📸 TARGET PHOTO (The picture to scan)
+              </label>
+              <div style={{
+                border: '1.5px dashed rgba(0, 242, 254, 0.4)',
+                borderRadius: '12px',
+                padding: '12px',
+                background: 'rgba(15, 23, 42, 0.6)',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                cursor: 'pointer'
+              }}>
+                <input type="file" accept="image/*" onChange={handleTargetPhotoChange} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                {targetImagePreview ? (
+                  <img src={targetImagePreview} alt="Target" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                    <ImageIcon size={20} />
+                  </div>
+                )}
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>
+                    {targetImage ? targetImage.name : 'Select or Drop Target Photo'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>JPG, PNG photo to scan</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Video Overlay Uploader */}
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ fontSize: '12px', color: 'var(--accent-emerald)', fontWeight: '700', display: 'block', marginBottom: '6px' }}>
+                🎬 OVERLAY VIDEO (The video to play when scanned)
+              </label>
+              <div style={{
+                border: '1.5px dashed rgba(16, 185, 129, 0.4)',
+                borderRadius: '12px',
+                padding: '12px',
+                background: 'rgba(15, 23, 42, 0.6)',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                cursor: 'pointer'
+              }}>
+                <input type="file" accept="video/*" onChange={handleVideoChange} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                {videoPreview ? (
+                  <video src={videoPreview} style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                    <Video size={20} />
+                  </div>
+                )}
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>
+                    {videoFile ? videoFile.name : 'Select or Drop Video File'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>MP4, WEBM video overlay</div>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => handleLaunchAR()}
+              className="btn-primary"
+              style={{ width: '100%', padding: '14px', fontSize: '15px', borderRadius: '14px' }}
+            >
+              <Play size={18} /> Launch AR & Save Paired Video
+            </button>
+          </div>
+        </div>
+
+        {/* SHAREABLE WEBAR LINK CARD */}
+        <div className="glass-panel" style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <Share2 size={18} style={{ color: 'var(--accent-cyan)' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#fff' }}>
+                Shareable WebAR Link
+              </h3>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              Send this link to anyone — when opened on their phone, scanning the target photo will play your video!
             </p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <button 
-              onClick={() => setArActive(true)} 
-              className="btn-primary btn-emerald"
-              style={{ padding: '16px 32px', fontSize: '16px', borderRadius: '30px' }}
-            >
-              <Camera size={22} /> Access AR View Lens
-            </button>
-
-            <button 
-              onClick={() => setShowMediaManager(true)}
-              className="btn-primary"
-              style={{ justifyContent: 'center' }}
-            >
-              <Share2 size={16} /> Upload & Share Videos / Photos
-            </button>
-
-            <button 
-              onClick={() => setShowTargetShowcase(true)}
-              className="btn-secondary"
-              style={{ justifyContent: 'center' }}
-            >
-              <ImageIcon size={16} /> Preview Sample Target Cards
-            </button>
-          </div>
+          <button 
+            onClick={handleCopyLink}
+            className="btn-primary"
+            style={{ padding: '12px 20px', fontSize: '14px', borderRadius: '12px' }}
+          >
+            {copiedLink ? <Check size={16} /> : <Copy size={16} />}
+            {copiedLink ? 'Copied Shareable Link!' : 'Copy Shareable Link'}
+          </button>
         </div>
 
-        {/* System Stats Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '32px' }}>
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>Authentication Provider</span>
-              <ShieldCheck size={18} style={{ color: 'var(--accent-emerald)' }} />
-            </div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#fff' }}>
-              {supabaseActive ? 'Supabase Auth API' : 'Demo Session Engine'}
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '4px' }}>
-              {supabaseActive ? 'JWT session verified in cookies' : 'Local state authentication'}
-            </div>
-          </div>
-
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>PostgreSQL Audit Table</span>
-              <Database size={18} style={{ color: 'var(--accent-cyan)' }} />
-            </div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#fff' }}>
-              public.login_logs
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '4px' }}>
-              {logs.length} logged handshake events recorded
-            </div>
-          </div>
-
-          <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: '500' }}>Storage Bucket</span>
-              <Share2 size={18} style={{ color: 'var(--accent-purple)' }} />
-            </div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: '#fff' }}>
-              ar-media (Public Storage)
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '4px' }}>
-              Photo & video texture streaming enabled
-            </div>
-          </div>
-        </div>
-
-        {/* Login Audit Logs Table Component */}
-        <LoginLogsTable 
-          logs={logs} 
-          onRefresh={fetchAuditLogs} 
-          isLoading={isLoadingLogs} 
-        />
-
-        {/* Supabase Media Upload & Sharing Modal */}
-        <MediaManagerModal
-          isOpen={showMediaManager}
-          onClose={() => setShowMediaManager(false)}
-          user={user}
-          onSelectMediaForAR={handleSelectMediaForAR}
-        />
-
-        {/* Database Migration & Credentials Setup Modal */}
-        <SupabaseSetupModal 
-          isOpen={showSupabaseSetup} 
-          onClose={() => setShowSupabaseSetup(false)} 
-        />
-
-        {/* Target Showcase Modal */}
+        {/* Printable Sample Targets Modal */}
         <TargetShowcaseModal 
           isOpen={showTargetShowcase} 
           onClose={() => setShowTargetShowcase(false)} 
