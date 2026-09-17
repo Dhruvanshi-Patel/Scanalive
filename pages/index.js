@@ -8,7 +8,7 @@ import {
   BookOpen, Heart, Palette, Gift, CheckCircle, ChevronRight, Smartphone, Eye, Trash2 
 } from 'lucide-react';
 
-export default function FrameAliveApp() {
+export default function LiveMemoriesApp() {
   const [targetImage, setTargetImage] = useState(null);
   const [targetImagePreview, setTargetImagePreview] = useState('');
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -57,7 +57,7 @@ export default function FrameAliveApp() {
 
   const openCameraScanner = (mediaObj = null) => {
     let videoUrlToUse = mediaObj?.video_url || mediaObj?.media_url || videoPreview || customVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
-    let titleToUse = mediaObj?.title || customTitle || 'FrameALIVE Video Overlay';
+    let titleToUse = mediaObj?.title || customTitle || 'LiveMemories Video Overlay';
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('ACTIVE_AR_MEDIA', JSON.stringify({
@@ -73,7 +73,7 @@ export default function FrameAliveApp() {
   const handleRegisterAndLaunchAR = async () => {
     const finalVideoUrl = videoPreview || customVideoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
     const finalPhotoUrl = targetImagePreview || '/targets/sample-target-1.png';
-    const finalTitle = customTitle || 'FrameALIVE Video Overlay';
+    const finalTitle = customTitle || 'LiveMemories Video Overlay';
 
     const newPair = {
       photoUrl: finalPhotoUrl,
@@ -92,7 +92,7 @@ export default function FrameAliveApp() {
   };
 
   const handleDeletePair = async (pairId) => {
-    if (window.confirm("Are you sure you want to delete this Photo & Video pair from the catalog?")) {
+    if (window.confirm("Are you sure you want to delete this Photo & Video pair from the LiveMemories catalog?")) {
       const updated = await removeGlobalARPairing(pairId);
       setGlobalCatalog(updated);
     }
@@ -101,6 +101,7 @@ export default function FrameAliveApp() {
   return (
     <div style={{ width: '100vw', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
       
+      {/* LIVEMEMORIES HEADER NAVBAR */}
       <header style={{
         position: 'sticky',
         top: 0,
@@ -127,7 +128,7 @@ export default function FrameAliveApp() {
             </div>
             <div>
               <span className="font-serif text-gradient" style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }}>
-                FrameALIVE
+                LiveMemories
               </span>
               <span style={{ fontSize: '11px', color: 'var(--accent-mint)', display: 'block', fontWeight: '600', marginTop: '-2px' }}>
                 Augmented Reality Print Studio
@@ -147,6 +148,7 @@ export default function FrameAliveApp() {
         </div>
       </header>
 
+      {/* HERO BANNER */}
       <section style={{ padding: '60px 24px 40px 24px', textAlign: 'center', maxWidth: '900px', margin: '0 auto' }}>
         <div style={{
           display: 'inline-flex',
@@ -186,14 +188,16 @@ export default function FrameAliveApp() {
             className="btn-secondary"
             style={{ padding: '16px 28px', fontSize: '15px' }}
           >
-            <Upload size={18} /> Create Your FrameALIVE
+            <Upload size={18} /> Create Your LiveMemories
           </a>
         </div>
       </section>
 
+      {/* STUDIO OPTIONS CONTAINER */}
       <section id="create-studio" style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: '28px', marginBottom: '48px' }}>
           
+          {/* OPTION 1: SCAN PRINTED PHOTO */}
           <div className="glass-panel glass-panel-interactive" style={{
             padding: '36px',
             display: 'flex',
@@ -250,6 +254,7 @@ export default function FrameAliveApp() {
             </div>
           </div>
 
+          {/* OPTION 2: PAIR PHOTO & VIDEO */}
           <div className="glass-panel glass-panel-interactive" style={{
             padding: '36px',
             border: '1px solid rgba(0, 242, 254, 0.35)',
@@ -365,12 +370,13 @@ export default function FrameAliveApp() {
           </div>
         </div>
 
+        {/* REGISTERED CATALOG WITH DELETE BUTTON */}
         <div className="glass-panel" style={{ padding: '28px', marginBottom: '48px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Layers size={20} style={{ color: 'var(--accent-emerald)' }} />
               <h3 className="font-serif" style={{ fontSize: '18px', fontWeight: '800', color: '#fff' }}>
-                Active Photo & Video Pairs ({globalCatalog.length})
+                Active LiveMemories Pairs ({globalCatalog.length})
               </h3>
             </div>
             <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
@@ -431,10 +437,11 @@ export default function FrameAliveApp() {
           </div>
         </div>
 
+        {/* HOW LIVEMEMORIES WORKS */}
         <div style={{ marginBottom: '56px' }}>
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h2 className="font-serif text-gradient" style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>
-              How FrameALIVE Works in 3 Easy Steps
+              How LiveMemories Works in 3 Easy Steps
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
               No QR codes on your prints. Pure image recognition technology.
@@ -458,7 +465,7 @@ export default function FrameAliveApp() {
               </p>
             </div>
 
-            <div className="glass-panel" style={{ padding: '24px' }}>
+            <div style={{ padding: '24px' }} className="glass-panel">
               <div style={{ fontSize: '36px', fontWeight: '900', color: 'var(--accent-mint)', marginBottom: '12px' }}>03</div>
               <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '8px' }}>Scan & Watch It Come Alive</h3>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.6' }}>
@@ -468,6 +475,7 @@ export default function FrameAliveApp() {
           </div>
         </div>
 
+        {/* USE CASES GRID */}
         <div style={{ marginBottom: '48px' }}>
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h2 className="font-serif text-gradient" style={{ fontSize: '28px', fontWeight: '800', marginBottom: '8px' }}>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>FrameALIVE WebAR Scanner</title>
+  <title>LiveMemories WebAR Camera Scanner</title>
   
   <!-- A-Frame v1.5.0 -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -34,7 +34,6 @@
       object-fit: cover !important;
     }
 
-    /* iOS Safari Permission Overlay Prompt */
     #ios-permission-modal {
       position: fixed;
       inset: 0;
@@ -212,14 +211,14 @@
 </head>
 <body>
 
-  <!-- iPhone Safari Camera Permission Prompt Overlay (Only shows if iOS Safari needs gesture) -->
+  <!-- iPhone Safari Camera Permission Prompt Overlay -->
   <div id="ios-permission-modal" style="display: none;">
     <div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
     </div>
     <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">iPhone Camera Access Required</h2>
-    <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.5', maxWidth: '320px' }}>
-      Tap below to grant camera access to scan physical photos and reveal augmented videos.
+    <p style="color: #94a3b8; font-size: 14px; line-height: 1.5; max-width: 320px;">
+      Tap below to grant camera access to scan physical photos and reveal LiveMemories videos.
     </p>
     <button id="request-cam-btn" class="permission-btn">📷 Allow Camera Access</button>
   </div>
@@ -251,7 +250,7 @@
     </div>
 
     <div id="target-toast">
-      <span>✨ FRAMEALIVE MATCH — Playing Video</span>
+      <span>✨ LIVEMEMORIES MATCH — Playing Video</span>
     </div>
   </div>
 
@@ -269,7 +268,6 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Target Index 0 (Physical Photo Target) -->
     <a-entity id="target-entity-0" mindar-image-target="targetIndex: 0">
       <a-video id="ar-video-plane" src="#ar-video-stream" position="0 0 0.05" width="1" height="0.75" rotation="0 0 0"></a-video>
 
@@ -281,7 +279,7 @@
                     animation="property: rotation; to: 360 360 0; loop: true; dur: 4000; easing: linear">
       </a-octahedron>
 
-      <a-text id="ar-title-text" value="FRAMEALIVE VIDEO ACTIVE" position="0 -0.65 0.1" align="center" width="2.2" color="#10b981"
+      <a-text id="ar-title-text" value="LIVEMEMORIES VIDEO ACTIVE" position="0 -0.65 0.1" align="center" width="2.2" color="#10b981"
               font="kelsonsans"
               animation="property: position; to: 0 -0.6 0.15; dir: alternate; loop: true; dur: 1500; easing: easeInOutSine">
       </a-text>
@@ -305,14 +303,12 @@
       const iosModal = document.getElementById('ios-permission-modal');
       const requestCamBtn = document.getElementById('request-cam-btn');
 
-      // Check if iPhone / iOS Safari needs explicit camera permission gesture
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
       async function checkCameraPermissions() {
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            // Release temp stream so MindAR takes over
             stream.getTracks().forEach(track => track.stop());
             if (iosModal) iosModal.style.display = 'none';
           } catch (err) {
@@ -339,7 +335,6 @@
 
       checkCameraPermissions();
 
-      // Check active media
       const urlParams = new URLSearchParams(window.location.search);
       let activeMediaUrl = urlParams.get('mediaUrl') || urlParams.get('videoUrl');
 
@@ -370,7 +365,7 @@
       if (targetEntity) {
         targetEntity.addEventListener("targetFound", () => {
           statusDot.classList.add('found');
-          statusText.innerText = "Photo Lock Acquired! [Video Playing]";
+          statusText.innerText = "Photo Lock Acquired! [LiveMemories Playing]";
           reticle.classList.add('found');
           if (laser) laser.style.display = 'none';
           toast.style.display = 'flex';

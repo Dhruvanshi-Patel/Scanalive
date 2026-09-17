@@ -3,9 +3,7 @@ import Head from 'next/head';
 
 export default function ScannerPage() {
   useEffect(() => {
-    // Top level redirect to standalone AR engine for full iOS Safari camera access
     if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
       window.location.replace(`/ar-lens-engine.html${window.location.search}`);
     }
   }, []);
@@ -13,7 +11,7 @@ export default function ScannerPage() {
   return (
     <>
       <Head>
-        <title>Launching FrameALIVE Scanner...</title>
+        <title>Launching LiveMemories Scanner...</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
       </Head>
       <div style={{
@@ -31,7 +29,7 @@ export default function ScannerPage() {
           Opening Camera Scanner...
         </div>
         <p style={{ fontSize: '13px', color: '#94a3b8' }}>
-          Initializing WebAR camera lens for iPhone Safari & Android
+          Initializing LiveMemories camera lens for iPhone Safari & Android
         </p>
       </div>
     </>
